@@ -744,6 +744,74 @@ For Varun:
 
 The recipient-facing experience should prioritize this direct relationship.
 
+## Invite Landing
+
+### LOCKED
+
+The **Invite landing** is the experience shown when a Player opens an Invite URL.
+
+Its primary product principle is:
+
+**friend -> Topic -> friend's Result -> curiosity -> product**
+
+The meaningful content hierarchy should begin with the Challenger, not with the Did You Know? brand.
+
+The product brand or logo may still be visible as normal page chrome, but it should not displace the social challenge as the primary message.
+
+Recommended semantic hierarchy:
+
+1. Challenger challenged the Player on the Topic;
+2. Challenger's Result;
+3. score-aware challenge prompt;
+4. Drop title;
+5. `5 questions`;
+6. short immediate-learning promise;
+7. primary CTA semantically equivalent to `Take the challenge`.
+
+For Challenger scores `0-4/5`, the challenge prompt may use the semantic idea:
+
+`Can you beat that?`
+
+For Challenger score `5/5`, the challenge prompt should use the semantic idea:
+
+`Can you match that?`
+
+Exact final copy and visual typography remain design decisions.
+
+Invite landing should not show:
+
+* name field;
+* signup;
+* Journey;
+* Knowledge Map;
+* upcoming Drops;
+* aggregate statistics;
+* propagation explanation;
+* Source Invite mechanics;
+* share options.
+
+Opening an Invite alone does not create Source Invite attribution.
+
+Starting from the Invite landing follows the locked Invite Attribution Rules.
+
+Do not create a separate Drop-intro state after Invite landing.
+
+`No signup` is not a required Invite landing element.
+
+It may be tested later as trust / friction copy.
+
+The locked behavior remains:
+
+* no signup is required;
+* no identity is requested before play;
+* no permissions are requested.
+
+Link / social-preview treatment is a later design and implementation consideration, not a Journey 2 blocker.
+
+Future implementation should avoid a broken or suspicious-looking link preview.
+
+Whether preview metadata is generic or dynamically Challenger-specific is NOT yet locked.
+
 ## Source Invite
 
 ### LOCKED
@@ -1810,15 +1878,200 @@ Do not resolve these from Journey 1:
 
 ---
 
-# 26. Next Section To Define
+# 26. Journey 2 - Fresh Player Arrives Through An Invite
+
+## LOCKED
+
+Journey 2 covers a fresh Player who receives an Invite from a Challenger, opens it, plays the same Drop, sees a Challenged Result, and may Challenge someone else.
+
+## Step 0 - Invitation Received
+
+The Challenger has completed the Drop and has a reusable Invite.
+
+The recipient receives an Invite message through WhatsApp.
+
+For scores `0-4/5`, evergreen message intent:
+
+`I got 3/5 on this Space challenge. Think you can beat me?`
+
+`[Invite URL]`
+
+For score `5/5`, use `match`, not `beat`.
+
+The message is:
+
+* first-person;
+* Topic-aware;
+* score-aware;
+* short;
+* non-promotional;
+* fixed and non-editable in V1.
+
+Drop title is not required in default message copy.
+
+## Step 1 - Invite Landing
+
+The recipient opens the Invite.
+
+Invite landing follows the locked Invite Landing hierarchy:
+
+* Challenger first;
+* Topic;
+* Challenger's Result;
+* score-aware challenge prompt;
+* Drop title;
+* `5 questions`;
+* immediate-learning promise;
+* CTA semantically equivalent to `Take the challenge`.
+
+Opening alone does not create Attempt attribution.
+
+The primary action is semantically:
+
+`Take the challenge`
+
+Do not show:
+
+* name field;
+* signup;
+* Journey;
+* Knowledge Map;
+* upcoming Drops;
+* aggregate statistics;
+* propagation explanation;
+* Source Invite mechanics;
+* share options.
+
+## Step 2 - Start
+
+When the recipient intentionally activates the Invite landing CTA:
+
+* they may remain unnamed;
+* their canonical Attempt for this Drop begins or resumes according to existing Attempt rules;
+* if this is the first start of that Attempt, the Challenger's Invite becomes the Attempt's Source Invite;
+* they proceed directly to Question 1.
+
+No separate Drop intro.
+
+## Steps 3-7 - Five Questions
+
+Use the existing locked Question State, Answer, and Reveal contracts unchanged.
+
+Do not persistently show during gameplay:
+
+* Challenger score;
+* social comparison;
+* score-so-far.
+
+The social context was established on Invite landing and returns at Result.
+
+## Step 8 - Challenged Result
+
+Use the locked Challenged Result contract.
+
+The Result must answer the acquisition question:
+
+`Did I beat / lose to / tie my Challenger?`
+
+Then it pivots to the current Player's own Result as the next social object.
+
+No name is required before the Player sees this Result.
+
+## Step 9 - Propagate Onward
+
+If the Player chooses:
+
+`Challenge a friend`
+
+follow the locked Challenge To Share Flow.
+
+The Player's outgoing Invite uses the Player's canonical Result.
+
+The next recipient sees the current Player as Challenger, not the previous Challenger.
+
+Conceptual propagation:
+
+`Rohanak -> Hira -> Varun`
+
+No visible group, thread, or graph is created.
+
+## Current Vs Historical Drops
+
+A valid Invite remains valid when newer Drops release.
+
+Historical LIVE Drops remain fully playable.
+
+Do not label them:
+
+* old;
+* expired;
+* stale.
+
+Current/latest framing may be used when accurate but is never required for the core Invite journey.
+
+## Invalid Invite
+
+Valid V1 Invites do not expire merely because time passes or newer Drops release.
+
+Invalid Invite primarily means malformed, deleted/corrupt, missing content, or otherwise unresolvable.
+
+Minimum recovery state:
+
+`This challenge link isn't available.`
+
+Primary CTA:
+
+`Play the latest Space challenge`
+
+Do not create an elaborate recovery system.
+
+## Existing Player, Unplayed Drop
+
+If the browser already contains a Player identity but that Player has not started this Drop:
+
+* Invite landing still uses the direct Challenger context;
+* starting follows the normal canonical Attempt / Source Invite rules;
+* named Players retain their existing name;
+* unnamed Players remain unnamed until they choose to Challenge someone later.
+
+Do not expand already-completed behavior here; Journey 4 will cover it.
+
+## Screen / State Inventory
+
+Major experiences:
+
+1. external WhatsApp Invite;
+2. Invite landing;
+3. existing Play surface;
+4. existing Challenged Result.
+
+Transient states:
+
+5. committed-Answer acknowledgement;
+6. name capture only on onward Challenge when required;
+7. share choice;
+8. invalid Invite recovery.
+
+Do not invent additional screens.
+
+## Still OPEN
+
+Do not resolve these from Journey 2:
+
+* exact landing copy;
+* exact CTA wording beyond semantic intent;
+* whether `No signup` appears visibly;
+* exact current/latest badge treatment;
+* exact Open Graph / social-preview implementation;
+* invalid-link final copy polish.
+
+---
+
+# 27. Next Section To Define
 
 ## TODO - Concrete V1 User Journeys
 
 The next product-design work should explicitly document the remaining journeys.
-
-## Journey 2
-
-Fresh Player arrives through a Challenger's Invite.
 
 ## Journey 3
 
