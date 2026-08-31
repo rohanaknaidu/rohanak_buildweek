@@ -221,6 +221,55 @@ Production Questions are curated.
 
 They are NOT generated live by AI in V1.
 
+## Question State
+
+### LOCKED
+
+The reusable V1 play surface should show only what helps the Player answer the current Question.
+
+Before the Player answers, the Question state should show:
+
+* quiet Area context;
+* compact progress;
+* Question prompt;
+* 2-4 answer options.
+
+Because V1 has only one Topic, do not repeat the Topic on every Question.
+
+The Drop title also does not need to repeat on every Question.
+
+The progress treatment should combine:
+
+* five-step visual progress;
+* explicit `N/5` text.
+
+Progress must distinguish conceptually between:
+
+* completed Questions;
+* the current Question;
+* upcoming Questions.
+
+While the Player is answering Question 2 of 5, the visual should not imply that Question 2 has already been completed.
+
+The explicit `2/5` text means:
+
+`currently on Question 2 of 5`
+
+not:
+
+`2 Questions already completed`
+
+Exact progress symbols, colors, and styling are visual-design decisions.
+
+Answer options should be:
+
+* vertically stacked;
+* full-width on mobile;
+* large enough to tap comfortably;
+* visually consistent for 2, 3, and 4-option Questions.
+
+No answer option is preselected.
+
 ## Reveal
 
 ### LOCKED
@@ -230,15 +279,27 @@ A **Reveal** happens immediately after a Player commits an Answer by activating 
 The Reveal shows:
 
 * whether the Player knew it;
-* the correct answer;
+* the Player's Answer;
+* the correct Answer;
 * a short explanation of the underlying fact;
-* ideally why the answer is interesting, surprising, or counterintuitive.
+* a quiet user-visible source affordance.
 
 The repeated learning loop is:
 
 `Question -> tap option -> Answer commits -> Reveal -> Next Question`
 
 Do not postpone all explanations until the end of the Drop.
+
+The Reveal should transform the same play surface rather than replace it entirely.
+
+During the Reveal:
+
+* the Question remains visible;
+* answer options remain visible;
+* the Player's Answer is identified;
+* the correct Answer is identified;
+* all answer options are non-interactive;
+* correctness does not rely on color alone.
 
 Preferred language:
 
@@ -255,6 +316,64 @@ Avoid:
 * intelligent;
 * IQ;
 * expert.
+
+The Reveal explanation should be concise but meaningful:
+
+* 2-4 sentences;
+* one main idea;
+* enough context to make the answer memorable;
+* ideally why the answer is interesting, surprising, or counterintuitive;
+* connection to the broader Area when useful.
+
+The Reveal should produce:
+
+`Oh, that's interesting.`
+
+rather than feeling like a lesson page.
+
+Every Reveal should include a quiet user-visible source affordance, such as:
+
+`Source: NASA`
+
+Do not show citation blocks or academic formatting in V1.
+
+The exact source-link interaction remains OPEN.
+
+For Questions 1-4, the Reveal CTA should be:
+
+`Next question`
+
+For Question 5, the Reveal CTA should be:
+
+`See result`
+
+Do not insert an interstitial state between a Reveal and the next Question.
+
+Reveal 5 still appears before the Result.
+
+During Question and Reveal states, do not show:
+
+* score-so-far;
+* global statistics;
+* Journey progress;
+* timer;
+* countdown;
+* social comparison;
+* sharing actions.
+
+Refresh behavior:
+
+* refreshing on an unanswered Question returns to that unanswered Question;
+* refreshing after a committed Answer returns to the Reveal for that committed Answer;
+* refreshing while viewing a Reveal returns to that Reveal;
+* a committed Answer can never become editable again.
+
+Still OPEN:
+
+* exact visual design of progress;
+* exact visual correctness treatment;
+* exact animation timing;
+* exact source-link interaction.
 
 ## Player
 
