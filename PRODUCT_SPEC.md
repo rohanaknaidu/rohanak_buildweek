@@ -702,6 +702,26 @@ One Invite may be sent to:
 
 One Invite may therefore cause multiple Players to start Attempts.
 
+A Player has at most one reusable Invite per Drop in V1.
+
+Conceptually:
+
+`Player + Drop -> reusable Invite`
+
+The same Invite URL may be shared repeatedly with one or many recipients.
+
+Implications:
+
+* Invite is not recipient-specific;
+* Invite existence does not mean it was sent;
+* reopening the share flow reuses the existing Invite;
+* `Challenge on WhatsApp` and `Copy Invite` actions are separate share-action / analytics concepts;
+* an attributed Attempt is stronger evidence of propagation than Invite creation.
+
+This is a V1 simplification, not a claim that future versions can never support multiple Invites per Player + Drop.
+
+Do not introduce future multi-Invite architecture in V1.
+
 ## Challenger
 
 ### LOCKED
@@ -1211,9 +1231,15 @@ Open WhatsApp with challenge text + unique URL prefilled.
 
 Recipient selection happens inside WhatsApp.
 
+If the Player returns to Did You Know? after opening WhatsApp, preserve the existing Result / share context.
+
 ## Copy Invite
 
 Copy the complete message + URL.
+
+After the complete message and URL are copied, show:
+
+`Invite copied`
 
 The Player may paste it into any other platform.
 
@@ -1256,6 +1282,51 @@ Invite copy must follow the score-aware perfect-score rule:
 
 * scores `0-4/5` may ask whether the recipient can beat the Player;
 * score `5/5` should ask whether the recipient can match the Player.
+
+## Challenge To Share Flow
+
+### LOCKED
+
+After a Result, the primary CTA is:
+
+`Challenge a friend`
+
+For an unnamed Player:
+
+`Challenge a friend`
+
+-> lightweight name-capture sheet or state
+
+-> `What should your friend see your name as?`
+
+-> save `displayName` to the existing Player
+
+-> reuse or create the Player's reusable Invite for this Drop
+
+-> share choices
+
+For a named Player:
+
+`Challenge a friend`
+
+-> reuse or create the Player's reusable Invite for this Drop
+
+-> share choices
+
+Share choices are exactly:
+
+* `Challenge on WhatsApp`
+* `Copy Invite`
+
+No recipient selection occurs inside Did You Know?.
+
+Full generated-message preview is not a V1 product requirement.
+
+It may be used during visual design if helpful.
+
+Generated Invite copy is fixed by the product and non-editable in V1.
+
+Default Invite copy does not need the Drop title.
 
 ---
 
@@ -1496,7 +1567,51 @@ This is not fully locked until the returning-Player journey is specified.
 
 ---
 
-# 21. Initial V1 Technology Direction
+# 21. Fresh Direct Home
+
+## LOCKED
+
+Fresh Direct Home is the experience for a new Player who opens Did You Know? directly.
+
+It should:
+
+* sell the immediate Space challenge;
+* lightly hint that the Result can become social;
+* avoid explaining the full Challenge mechanics;
+* use familiar first-time language such as `Space challenge`;
+* proceed directly into Question 1.
+
+`Drop` remains the canonical domain/content term, but a fresh Player does not need to understand that term before playing.
+
+Required semantic hierarchy:
+
+1. `Did You Know?`;
+2. short proposition combining knowledge and social comparison;
+3. `Space`;
+4. current/latest LIVE Drop title;
+5. `5 questions`;
+6. primary CTA: `Play`.
+
+Exact marketing copy remains a design/copy decision.
+
+Fresh Direct Home should not require:
+
+* name;
+* signup;
+* Area;
+* Journey;
+* upcoming Drop;
+* aggregate statistics;
+* share options;
+* detailed explanation of Invites.
+
+Approximate duration remains optional and should only be shown if honest for the actual content.
+
+Do not create a separate Drop-intro screen in V1.
+
+---
+
+# 22. Initial V1 Technology Direction
 
 ## LOCKED
 
@@ -1525,7 +1640,7 @@ Detailed engineering setup will be defined after the user journeys and product s
 
 ---
 
-# 22. Explicitly Retired V1 Concepts
+# 23. Explicitly Retired V1 Concepts
 
 ## LOCKED
 
@@ -1551,7 +1666,7 @@ A future synchronous multiplayer / Kahoot-style mode is not prohibited; it is si
 
 ---
 
-# 23. Current Product Model Summary
+# 24. Current Product Model Summary
 
 ## Content
 
@@ -1585,15 +1700,121 @@ A future synchronous multiplayer / Kahoot-style mode is not prohibited; it is si
 
 ---
 
-# 24. Next Section To Define
+# 25. Journey 1 - Fresh Player Starts Directly
+
+## LOCKED
+
+Journey 1 covers a brand-new Player who opens Did You Know? directly and plays the current/latest LIVE Space Drop.
+
+## Step 1 - Home
+
+An anonymous new Player opens Did You Know?.
+
+Fresh Direct Home follows the locked Fresh Direct Home principles:
+
+* immediate Space challenge;
+* light social promise;
+* current/latest LIVE Drop title;
+* `5 questions`;
+* `Play`.
+
+No identity is required.
+
+Primary action:
+
+`Play`
+
+Home proceeds directly into Question 1.
+
+There is no separate Drop-intro screen.
+
+## Steps 2-6 - Five Questions
+
+Use the locked Question State, Answer, and Reveal contracts.
+
+The repeated flow is:
+
+`Question -> tap Answer -> Answer commits -> Reveal -> Next question`
+
+Repeat through Question 5.
+
+Question 5 Reveal ends with:
+
+`See result`
+
+## Step 7 - Direct Result
+
+Use the locked Direct Result contract:
+
+* score;
+* plain interpretation scoped to this Drop;
+* Drop title;
+* social provocation around the Player's own Result;
+* `Challenge a friend`;
+* quiet `Your Space Journey` action.
+
+Do not show aggregate statistics or Question-by-Question recap on the default Direct Result.
+
+## Step 8A - Social Path
+
+If the Player chooses:
+
+`Challenge a friend`
+
+follow the locked Challenge To Share Flow.
+
+Journey 1's social handoff is complete when:
+
+* WhatsApp is opened with the generated message and Invite URL prefilled;
+* or the complete generated message and Invite URL are copied.
+
+## Step 8B - Knowledge Path
+
+If the Player chooses:
+
+`Your Space Journey`
+
+Journey 1 ends at that navigation decision.
+
+Do not define the Journey destination here. Journey 3 will define that experience.
+
+## Screen / State Inventory
+
+Major surfaces:
+
+1. Home;
+2. Play surface;
+3. Result.
+
+Transient states:
+
+4. committed-Answer acknowledgement;
+5. name capture, only when required for sharing;
+6. share choice.
+
+Question and Reveal are states of the same play experience.
+
+Do not create a separate Drop-intro state.
+
+## Still OPEN
+
+Do not resolve these from Journey 1:
+
+* exact Home marketing copy;
+* exact visual design;
+* whether Home shows approximate duration;
+* exact name-capture sheet styling;
+* exact share-sheet layout;
+* optional Invite-copy preview;
+* Journey destination.
+
+---
+
+# 26. Next Section To Define
 
 ## TODO - Concrete V1 User Journeys
 
-The next product-design work should explicitly document:
-
-## Journey 1
-
-Fresh Player starts directly.
+The next product-design work should explicitly document the remaining journeys.
 
 ## Journey 2
 
