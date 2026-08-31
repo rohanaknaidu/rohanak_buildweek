@@ -267,11 +267,15 @@ V1 has no authenticated accounts.
 A Player may have:
 
 * browser-local `playerId`;
-* first-name display identity.
+* optional first-name `displayName`.
 
 Duplicate display names are acceptable.
 
 Player identity is convenience identity, not secure proof of a human being.
+
+`displayName` is intentionally optional.
+
+An unnamed Player is still a valid Player with valid Attempts, Answers, Results, and Journey progress.
 
 ## Attempt
 
@@ -362,6 +366,8 @@ An Invite belongs to:
 An Invite produces a unique share URL.
 
 An Invite does NOT belong to a predetermined recipient.
+
+Creating an Invite requires the inviter Player to have a `displayName`, because the recipient needs to know who challenged them.
 
 Did You Know? never asks:
 
@@ -777,15 +783,62 @@ No-auth means this is enforced only for the same browser-local Player identity.
 
 ## LOCKED
 
-There are two identity flows.
+V1 does not require identity to consume the product.
+
+Identity is required only when a Player wants to become socially visible by creating an Invite.
+
+A Player may therefore:
+
+* start a Drop anonymously;
+* answer Questions anonymously;
+* receive Reveals anonymously;
+* complete a canonical Attempt anonymously;
+* receive a Result anonymously;
+* compare their Result with a Challenger anonymously;
+* accumulate browser-local Journey progress anonymously.
+
+A `displayName` is required only when the Player taps:
+
+`Challenge a friend`
+
+and does not already have one.
+
+At that moment ask:
+
+`What should your friend see your name as?`
+
+Then save the `displayName` to the existing Player and continue to the V1 sharing options:
+
+* `Challenge on WhatsApp`
+* `Copy Invite`
+
+Do not create a new Player merely because the name is added.
 
 ## Fresh Direct Player
 
-A Player starting independently may enter their first name before beginning.
+No name is required before play.
+
+Desired sequence:
+
+`Home`
+
+-> `play`
+
+-> `five Questions`
+
+-> `Result`
+
+-> `Challenge a friend`
+
+-> `name capture if unnamed`
+
+-> `WhatsApp / Copy Invite`
 
 ## Fresh Invited Player
 
 Do NOT ask for their name before playing.
+
+Do NOT require their name between Question 5 and Result.
 
 Desired sequence:
 
@@ -795,17 +848,36 @@ Desired sequence:
 
 -> `five Questions`
 
--> `name`
+-> `Result vs Challenger`
 
--> `social Result`
+-> `Challenge a friend`
 
-After Question 5 ask something like:
+-> `name capture if unnamed`
 
-`What should Rohanak see your name as?`
+-> `WhatsApp / Copy Invite`
 
-Then show the social comparison.
+The anonymous Player can still see:
 
-The goal is to avoid putting identity friction before curiosity.
+`You got 4/5`
+
+`Rohanak got 3/5`
+
+`You beat Rohanak.`
+
+## Returning Named Player
+
+If the browser-local Player already has a `displayName`:
+
+* do not ask again during normal V1 sharing;
+* Challenge can proceed directly to the V1 sharing options.
+
+## Privacy And Analytics Implication
+
+Players who never share may remain unnamed.
+
+V1 does not need named completion data for every Player.
+
+Analytics and aggregate Drop statistics must work using stable Player IDs rather than requiring display names.
 
 ---
 
