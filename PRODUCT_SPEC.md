@@ -492,6 +492,168 @@ Example:
 
 Do not introduce points, XP, or arbitrary scoring in V1.
 
+The Result's default job hierarchy is:
+
+1. tell the Player how they did;
+2. if relevant, tell the Player how they compared with their direct Challenger;
+3. make the Player's own Result feel worth challenging someone with;
+4. provide one quiet path into the long-term Journey.
+
+The Result should not become a report card, social leaderboard, Knowledge Map, or release calendar.
+
+## Direct Result
+
+### LOCKED
+
+A **Direct Result** is shown when the Player did not arrive through a current direct Challenger context.
+
+Default hierarchy:
+
+1. Player score;
+2. plain interpretation scoped to this Drop;
+3. Drop title;
+4. social provocation around the Player's own Result;
+5. `Challenge a friend`;
+6. quiet `Your Space Journey` action.
+
+Example intent:
+
+`3/5`
+
+`You knew 3 of 5 on this Space challenge.`
+
+`How Strange Is Our Solar System?`
+
+`Think someone can beat your 3/5?`
+
+`Challenge a friend`
+
+`Your Space Journey ->`
+
+Core Result semantics must work for any LIVE historical Drop.
+
+Language such as `this week's` may be used only when the Drop is genuinely the current/latest release.
+
+Do not hardcode `this week's` into Result copy that also serves older LIVE Drops.
+
+## Challenged Result
+
+### LOCKED
+
+A **Challenged Result** is shown when the Player has a current direct Challenger comparison context.
+
+Default hierarchy:
+
+1. Player score;
+2. win / loss / tie against the direct Challenger;
+3. compact score comparison;
+4. Drop title;
+5. social provocation around the current Player's own Result;
+6. `Challenge a friend`;
+7. quiet `Your Space Journey` action.
+
+Win means:
+
+the Player scored higher than the Challenger.
+
+Loss means:
+
+the Challenger scored higher than the Player.
+
+Tie means:
+
+the Player and Challenger scored equally.
+
+Win / loss / tie are determined only by comparing Results out of 5.
+
+Win copy should clearly communicate that the Player scored higher than the Challenger.
+
+Loss copy should clearly communicate that the Challenger scored higher, using light and non-shaming language.
+
+Tie copy should clearly communicate equal scores.
+
+Exact win / loss / tie phrasing is a copy/design decision.
+
+Example win intent:
+
+`4/5`
+
+`You beat Rohanak.`
+
+`You 4/5 · Rohanak 3/5`
+
+`How Strange Is Our Solar System?`
+
+`Think someone can beat your 4/5?`
+
+`Challenge a friend`
+
+`Your Space Journey ->`
+
+The Challenger gets the Player into the Drop.
+
+The Player's own Result is what they Challenge the next person with.
+
+Outgoing Invites always represent the current Player and their canonical Result, regardless of whether they won, lost, or tied against their Challenger.
+
+Do not imply that the Player is forwarding their Challenger's Result or Challenge on the Challenger's behalf.
+
+## Perfect Score Challenge Copy
+
+### LOCKED
+
+A Player with `5/5` cannot logically ask someone else to beat that Result.
+
+For scores `0-4/5`, Result and Invite copy may use the semantic idea:
+
+`beat`
+
+Example Result intent:
+
+`Think someone can beat your 3/5?`
+
+Example Invite intent:
+
+`I got 3/5 on this Space challenge. Think you can beat me?`
+
+For score `5/5`, Result and Invite copy should use the semantic idea:
+
+`match`
+
+Example Result intent:
+
+`Think someone can match your 5/5?`
+
+Example Invite intent:
+
+`I got 5/5 on this Space challenge. Think you can match me?`
+
+Do not create elaborate copy variations for every score in V1.
+
+## Default Result Exclusions
+
+### LOCKED
+
+Do not show these on the default V1 Result:
+
+* Area;
+* aggregate statistics;
+* player counts;
+* average score;
+* percentile;
+* hardest Question;
+* Question-by-Question recap;
+* Knowledge Map;
+* upcoming Drop or release information;
+* public participant lists;
+* post-Drop synthesis lesson.
+
+These may live in Journey or later experiments where appropriate.
+
+`Challenge a friend` remains the primary Result action.
+
+`Your Space Journey` remains the secondary Result action.
+
 ## Challenge
 
 ### LOCKED
@@ -855,7 +1017,7 @@ If sender-facing feedback is introduced, it should scale through aggregates such
 
 `12 people took your challenge`
 
-`7 beat your score`
+`7 matched or beat your score`
 
 rather than exposing a giant participant list.
 
@@ -1074,15 +1236,26 @@ Bad:
 
 `Rohanak has challenged you to play Did You Know?`
 
-Better:
+Evergreen default:
 
-`I got 4/5 on this week's Space challenge. Think you can beat me?`
+`I got 4/5 on this Space challenge. Think you can beat me?`
 
 `[URL]`
 
 The Topic must be present.
 
 The recipient's interest in the Topic is part of the acquisition mechanism.
+
+Core Invite semantics must work for any LIVE historical Drop.
+
+Language such as `this week's` may be used only when the Drop is genuinely the current/latest release.
+
+Do not hardcode `this week's` into Invite copy that also serves older LIVE Drops.
+
+Invite copy must follow the score-aware perfect-score rule:
+
+* scores `0-4/5` may ask whether the recipient can beat the Player;
+* score `5/5` should ask whether the recipient can match the Player.
 
 ---
 
