@@ -225,7 +225,7 @@ They are NOT generated live by AI in V1.
 
 ### LOCKED
 
-A **Reveal** happens immediately after a Player locks an Answer.
+A **Reveal** happens immediately after a Player commits an Answer by activating an answer option.
 
 The Reveal shows:
 
@@ -236,7 +236,7 @@ The Reveal shows:
 
 The repeated learning loop is:
 
-`Question -> Answer -> Reveal -> Next Question`
+`Question -> tap option -> Answer commits -> Reveal -> Next Question`
 
 Do not postpone all explanations until the end of the Drop.
 
@@ -294,7 +294,7 @@ An Attempt can be:
 * in progress;
 * completed.
 
-Every locked Answer should be persisted as it occurs.
+Every committed Answer should be persisted as it occurs.
 
 Refreshing midway through a Drop should resume the existing Attempt rather than restarting it.
 
@@ -306,15 +306,52 @@ No-auth means the same human using another browser/device may appear as another 
 
 ### LOCKED
 
-An **Answer** is one locked Player response to one Question within an Attempt.
+An **Answer** is one committed Player response to one Question within an Attempt.
 
-The Player may change selection before locking.
+A Player submits an Answer by tapping or clicking an answer option.
 
-After locking:
+Interaction:
+
+`Question -> tap option -> Answer immediately commits -> brief visual acknowledgement -> Reveal`
+
+There is no separate:
+
+`Lock answer`
+
+button in V1.
+
+Once an option is activated:
 
 * the Answer cannot be edited;
 * correctness is determined server-side;
 * the Answer is persisted.
+* the selected option becomes visibly committed;
+* other answer options become non-interactive;
+* the Reveal follows.
+
+The brief acknowledgement is interaction feedback, not a separate confirmation decision or screen.
+
+Do not specify a fixed animation duration yet.
+
+V1 chooses direct commit because:
+
+* this is a casual five-Question social challenge, not an exam;
+* the interaction should be fast and mobile-native;
+* a confirmation button doubles the number of answering actions;
+* immediate commitment creates a useful `guess -> consequence -> Reveal` rhythm.
+
+Do not solve accidental taps with an extra confirmation step.
+
+Instead, V1 Question UI should use:
+
+* large answer tap targets;
+* sufficient spacing;
+* no overlapping navigation controls;
+* clear focus, pressed, and committed states;
+* intentional activation on the answer control itself;
+* accessible keyboard and assistive-technology behavior.
+
+Do not add undo or replay mechanics for submitted Answers in V1.
 
 Do not trust the client to calculate correctness.
 
