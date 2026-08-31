@@ -379,32 +379,99 @@ Still OPEN:
 
 ### LOCKED
 
-A **Player** is one V1 browser-local identity representing a person using the product.
+A **Player** is one V1 browser/device-local identity representing a person using the product before authentication.
 
-V1 has no authenticated accounts.
+A Player exists before authentication.
 
-A Player may have:
+A Player allows Did You Know? to:
 
-* browser-local `playerId`;
-* optional first-name `displayName`.
+* play without authentication;
+* persist anonymous Attempts immediately;
+* resume on the same browser;
+* retain provenance for where an Attempt originated.
 
-Duplicate display names are acceptable.
+The browser-local `playerId` remains after successful Profile authentication as provenance.
+
+Do not erase the originating Player merely because a Profile is created.
 
 Player identity is convenience identity, not secure proof of a human being.
 
-`displayName` is intentionally optional.
+An anonymous Player is still valid and may have valid Attempts, Answers, Results, and browser-local Journey progress.
 
-An unnamed Player is still a valid Player with valid Attempts, Answers, Results, and Journey progress.
+## Auth Identity
+
+### LOCKED
+
+V1 uses **Convex Auth** directly for durable authentication.
+
+Convex Auth establishes:
+
+> This is a verified authenticated user / email.
+
+Authentication proves identity and maintains the durable session.
+
+Use:
+
+* email one-time code;
+* no password;
+* no username;
+* no Google / GitHub / OAuth buttons;
+* no separate third-party identity provider.
+
+Convex Auth is the only V1 authentication provider.
+
+Email one-time-code delivery requires a transactional email sender/provider.
+
+That provider is mail-delivery infrastructure only.
+
+It is not another identity provider or source of user truth.
+
+The product / auth model is:
+
+* Convex Auth proves authenticated identity;
+* Convex product data owns Profile, Journey, Attempts, Answers, and Invites;
+* the email provider only delivers verification codes.
+
+Do not lock a specific email provider into the product model unless implementation requires it.
+
+Implementation should use the smallest reliable email delivery option supported by Convex Auth.
+
+Do not make M2.1 depend on authenticated Next.js middleware, authenticated Server Components, SSR auth, or API-route auth.
+
+Use client-side authentication for this milestone.
+
+## Profile
+
+### LOCKED
+
+A **Profile** is the Did You Know product identity associated with an authenticated Convex Auth user.
+
+At minimum, a Profile owns:
+
+* authenticated user identity reference;
+* verified email reference as appropriate;
+* `displayName`;
+* creation / update timestamps.
+
+`displayName` belongs to the Did You Know product model because it is the identity friends see in Challenges.
+
+Do not store Journey, Attempt, Answer, Invite, or progress state inside auth-user metadata merely because auth provides a user record.
 
 ## Attempt
 
 ### LOCKED
 
-An **Attempt** is one Player's canonical play-through of one Drop.
+An **Attempt** is one canonical play-through of one Drop.
 
-Conceptual invariant:
+Before authentication, the canonical invariant is:
 
 `playerId + dropId`
+
+has one canonical Attempt.
+
+After authentication, the canonical invariant is:
+
+`profileId + dropId`
 
 has one canonical Attempt.
 
@@ -417,9 +484,23 @@ Every committed Answer should be persisted as it occurs.
 
 Refreshing midway through a Drop should resume the existing Attempt rather than restarting it.
 
-A Player cannot replay the same Drop to create a different canonical Result.
+A Player or Profile cannot replay the same Drop to create a different canonical Result.
 
-No-auth means the same human using another browser/device may appear as another Player. This is acceptable for V1.
+If a Profile does not already own an Attempt for the Drop, eligible anonymous progress should be claimed into that Profile after successful authentication.
+
+If a Profile already owns an Attempt for the Drop, the existing Profile Attempt wins.
+
+Do not:
+
+* merge scores;
+* replace Profile progress with anonymous progress;
+* choose the higher score;
+* create a score picker;
+* create two canonical Profile Attempts.
+
+The anonymous Attempt may remain as provenance / history if needed, but it must not become a second canonical Profile score.
+
+The originating `playerId` should remain preserved for provenance.
 
 ## Answer
 
@@ -497,7 +578,8 @@ The Result's default job hierarchy is:
 1. tell the Player how they did;
 2. if relevant, tell the Player how they compared with their direct Challenger;
 3. make the Player's own Result feel worth challenging someone with;
-4. provide one quiet path into the long-term Journey.
+4. provide a real exit back to Space;
+5. offer anonymous Players a quiet way to save their Journey.
 
 The Result should not become a report card, social leaderboard, Knowledge Map, or release calendar.
 
@@ -514,7 +596,8 @@ Default hierarchy:
 3. Drop title;
 4. social provocation around the Player's own Result;
 5. `Challenge a friend`;
-6. quiet `Your Space Journey` action.
+6. `Back to Space`;
+7. quiet `Save my journey` prompt when the Player is anonymous.
 
 Example intent:
 
@@ -528,7 +611,9 @@ Example intent:
 
 `Challenge a friend`
 
-`Your Space Journey ->`
+`Back to Space ->`
+
+`Save my journey`
 
 Core Result semantics must work for any LIVE historical Drop.
 
@@ -550,7 +635,8 @@ Default hierarchy:
 4. Drop title;
 5. social provocation around the current Player's own Result;
 6. `Challenge a friend`;
-7. quiet `Your Space Journey` action.
+7. `Back to Space`;
+8. quiet `Save my journey` prompt when the Player is anonymous.
 
 Win means:
 
@@ -588,7 +674,7 @@ Example win intent:
 
 `Challenge a friend`
 
-`Your Space Journey ->`
+`Back to Space ->`
 
 The Challenger gets the Player into the Drop.
 
@@ -652,7 +738,9 @@ These may live in Journey or later experiments where appropriate.
 
 `Challenge a friend` remains the primary Result action.
 
-`Your Space Journey` remains the secondary Result action.
+`Back to Space` remains the secondary Result action.
+
+For anonymous Players, `Save my journey` is a quiet persistence prompt, not an authentication wall before seeing the Result.
 
 ## Challenge
 
@@ -668,6 +756,10 @@ Primary CTA:
 
 `Challenge a friend`
 
+If the Player is anonymous, this action routes through the Profile / auth flow before an Invite is created.
+
+If the Player already has an authenticated Profile, this action proceeds directly to sharing.
+
 Do not assume Challenge needs its own persistent database entity.
 
 ## Invite
@@ -678,14 +770,14 @@ An **Invite** is the shareable object created when a Player challenges someone.
 
 An Invite belongs to:
 
-* one inviter Player;
+* one inviter Profile;
 * one Drop.
 
 An Invite produces a unique share URL.
 
 An Invite does NOT belong to a predetermined recipient.
 
-Creating an Invite requires the inviter Player to have a `displayName`, because the recipient needs to know who challenged them.
+Creating an Invite requires an authenticated Profile, because social identity should be durable and trustworthy.
 
 Did You Know? never asks:
 
@@ -702,11 +794,11 @@ One Invite may be sent to:
 
 One Invite may therefore cause multiple Players to start Attempts.
 
-A Player has at most one reusable Invite per Drop in V1.
+A Profile has at most one reusable Invite per Drop in V1.
 
 Conceptually:
 
-`Player + Drop -> reusable Invite`
+`Profile + Drop -> reusable Invite`
 
 The same Invite URL may be shared repeatedly with one or many recipients.
 
@@ -718,7 +810,7 @@ Implications:
 * `Challenge on WhatsApp` and `Copy Invite` actions are separate share-action / analytics concepts;
 * an attributed Attempt is stronger evidence of propagation than Invite creation.
 
-This is a V1 simplification, not a claim that future versions can never support multiple Invites per Player + Drop.
+This is a V1 simplification, not a claim that future versions can never support multiple Invites per Profile + Drop.
 
 Do not introduce future multi-Invite architecture in V1.
 
@@ -726,7 +818,7 @@ Do not introduce future multi-Invite architecture in V1.
 
 ### LOCKED
 
-The **Challenger** is the Player whose Invite creates the current direct comparison context.
+The **Challenger** is the Profile whose Invite creates the current direct comparison context.
 
 Example:
 
@@ -781,7 +873,7 @@ Exact final copy and visual typography remain design decisions.
 Invite landing should not show:
 
 * name field;
-* signup;
+* authentication / Profile creation;
 * Journey;
 * Knowledge Map;
 * upcoming Drops;
@@ -796,13 +888,13 @@ Starting from the Invite landing follows the locked Invite Attribution Rules.
 
 Do not create a separate Drop-intro state after Invite landing.
 
-`No signup` is not a required Invite landing element.
+`No authentication required before play` is not a required Invite landing element.
 
 It may be tested later as trust / friction copy.
 
 The locked behavior remains:
 
-* no signup is required;
+* no authentication is required before play;
 * no identity is requested before play;
 * no permissions are requested.
 
@@ -846,7 +938,7 @@ Rohanak receives an Invite-open analytics event but does not receive completion 
 
 ### LOCKED
 
-A **Journey** is a Player's ongoing exploration of a Topic.
+A **Journey** is a Player or Profile's ongoing exploration of a Topic.
 
 User-facing example:
 
@@ -989,11 +1081,15 @@ Release order does not have to follow Area order.
 
 ## LOCKED
 
-The Player activity model is:
+Before authentication, the Player activity model is:
 
 `Player -> Attempt -> Answers -> Result`
 
-The Attempt is the canonical unit of one Player playing one Drop.
+After authentication, eligible progress is associated with:
+
+`Profile -> Attempt -> Answers -> Result`
+
+The Attempt is the canonical unit of a Player or Profile playing one Drop.
 
 Score, completion, and other Result information should be derived from persisted Answers whenever practical.
 
@@ -1109,7 +1205,7 @@ If sender-facing feedback is introduced, it should scale through aggregates such
 
 rather than exposing a giant participant list.
 
-A Player's first name and score should not automatically become visible to unrelated Players many hops downstream.
+A Profile's display name and score should not automatically become visible to unrelated Players many hops downstream.
 
 ---
 
@@ -1164,9 +1260,13 @@ Therefore:
 
 ## LOCKED
 
-Canonical means:
+Before authentication, canonical means:
 
 **one canonical Attempt per `playerId + dropId`.**
+
+After authentication, canonical means:
+
+**one canonical Attempt per `profileId + dropId`.**
 
 The invariant is independent of entry path.
 
@@ -1181,17 +1281,22 @@ If a Player starts a Drop directly and later opens an Invite for the same Drop:
 * use the existing Result if completed;
 * do not rewrite Source Invite.
 
-No-auth means this is enforced only for the same browser-local Player identity.
+Before authentication, this is enforced only for the same browser-local Player identity.
+
+After successful authentication, eligible anonymous progress should be claimed into the authenticated Profile according to the Profile claim rules.
 
 ---
 
-# 11. Identity Timing
+# 11. Identity And Profile Timing
 
 ## LOCKED
 
 V1 does not require identity to consume the product.
 
-Identity is required only when a Player wants to become socially visible by creating an Invite.
+Identity is required when a Player wants durable identity:
+
+* saving their Space Journey across browsers / devices;
+* creating an Invite and becoming socially visible as Challenger.
 
 A Player may therefore:
 
@@ -1203,26 +1308,90 @@ A Player may therefore:
 * compare their Result with a Challenger anonymously;
 * accumulate browser-local Journey progress anonymously.
 
-A `displayName` is required only when the Player taps:
+Do not put authentication before the first quiz.
+
+Use one Profile / auth flow with two entry points:
+
+* `Save my journey`;
+* `Challenge a friend` from an anonymous Player.
+
+## Save My Journey
+
+Anonymous Result / Space Home:
+
+`Save my journey`
+
+-> Profile / auth flow
+
+-> successful email-code verification
+
+-> claim eligible anonymous progress
+
+-> return to Space
+
+## Challenge A Friend While Anonymous
+
+Anonymous Result:
 
 `Challenge a friend`
 
-and does not already have one.
+-> same Profile / auth flow
 
-At that moment ask:
+-> successful email-code verification
 
-`What should your friend see your name as?`
+-> claim eligible anonymous progress
 
-Then save the `displayName` to the existing Player and continue to the V1 sharing options:
+-> return directly to Challenge / share choices
 
-* `Challenge on WhatsApp`
-* `Copy Invite`
+For an already-authenticated Profile:
 
-Do not create a new Player merely because the name is added.
+`Challenge a friend`
+
+-> share choices immediately
+
+No repeated Profile creation, name entry, or email entry during normal sharing.
+
+## Profile Creation UX
+
+Conceptual flow:
+
+`Create your profile`
+
+Name
+
+Email
+
+`Continue`
+
+Then:
+
+`Check your email`
+
+Enter the one-time code.
+
+`Verify`
+
+After successful verification, complete the Profile / claim operation and return to the original intended action.
+
+Do not ask for passwords.
+
+Do not create separate confusing product flows for "sign up" and "sign in."
+
+The user supplies their email and verifies it.
+
+After authentication:
+
+* if this auth identity has no Profile, create one;
+* if it already has a Profile, load it;
+* run the same claim / reconciliation rules.
+
+The user should not need to understand whether they just "signed up," "signed in," or "claimed an anonymous Player."
+
+Do not call email capture "signup" unless authentication / verification actually succeeded.
 
 ## Fresh Direct Player
 
-No name is required before play.
+No authentication or name is required before play.
 
 Desired sequence:
 
@@ -1234,17 +1403,17 @@ Desired sequence:
 
 -> `Result`
 
--> `Challenge a friend`
+At Result, the Player may:
 
--> `name capture if unnamed`
-
--> `WhatsApp / Copy Invite`
+* Challenge a friend, which requires Profile creation if anonymous;
+* Back to Space without authentication;
+* Save my journey.
 
 ## Fresh Invited Player
 
-Do NOT ask for their name before playing.
+Do NOT ask for identity before playing.
 
-Do NOT require their name between Question 5 and Result.
+Do NOT require identity between Question 5 and Result.
 
 Desired sequence:
 
@@ -1256,11 +1425,11 @@ Desired sequence:
 
 -> `Result vs Challenger`
 
--> `Challenge a friend`
+At Result, the Player may:
 
--> `name capture if unnamed`
-
--> `WhatsApp / Copy Invite`
+* Challenge a friend, which requires Profile creation if anonymous;
+* Back to Space without authentication;
+* Save my journey.
 
 The anonymous Player can still see:
 
@@ -1270,28 +1439,116 @@ The anonymous Player can still see:
 
 `You beat Rohanak.`
 
-## Returning Named Player
+## Authenticated Profile
 
-If the browser-local Player already has a `displayName`:
+If the Player is authenticated and has a Profile:
 
-* do not ask again during normal V1 sharing;
-* Challenge can proceed directly to the V1 sharing options.
+* do not ask for name / email again during normal V1 sharing;
+* Challenge can proceed directly to the V1 sharing options;
+* signed-in return should restore Profile-owned progress across browsers / devices.
 
 ## Privacy And Analytics Implication
 
-Players who never share may remain unnamed.
+Players who never save their Journey or Challenge someone may remain anonymous.
 
-V1 does not need named completion data for every Player.
+Anonymous analytics and aggregate Drop statistics must work using stable Player IDs rather than requiring Profiles.
 
-Analytics and aggregate Drop statistics must work using stable Player IDs rather than requiring display names.
+Email notifications are not part of M2.1.
+
+Email is introduced first as the durable authentication / recovery identity.
+
+Notifications are future behavior.
 
 ---
 
-# 12. Sharing
+# 12. Claiming Anonymous Progress
 
 ## LOCKED
 
-Sharing contains exactly two V1 options.
+Claiming anonymous progress is mandatory after successful Profile authentication.
+
+Suppose:
+
+`Player ABC`
+
+-> completed Drop
+
+-> `1/5`
+
+Then the user authenticates.
+
+The resulting durable Profile must retain that completed progress.
+
+Do not produce:
+
+`anonymous Player ABC -> 1/5`
+
+and separately:
+
+`new Profile -> no history`
+
+Conceptually, the Profile becomes the durable owner of eligible Attempts while each Attempt still preserves its originating Player / browser provenance.
+
+Do not delete or rewrite the originating `playerId`.
+
+If the anonymous Attempt has a `sourceInviteId`, claiming must preserve it.
+
+Authentication / claiming must never erase or overwrite acquisition attribution.
+
+Anonymous progress may only be claimed by the currently authenticated Convex Auth identity.
+
+Client code must never be trusted to supply or choose an arbitrary `profileId`, auth user ID, or ownership target.
+
+Convex functions must derive the authenticated identity from the auth session, resolve or create that identity's Profile internally, and perform claiming against that Profile.
+
+The same rule applies to authenticated Invite creation and any Profile-owned mutation.
+
+If the Profile already owns an Attempt for the Drop:
+
+* existing Profile Attempt wins;
+* anonymous progress is not merged into the canonical Profile score;
+* anonymous progress does not replace Profile progress;
+* the higher score is not chosen;
+* no score picker is shown.
+
+Make this behavior explicit in the data model rather than relying on frontend convention.
+
+Once authenticated, Profile-owned progress is canonical in all Result, Home, Journey, and Challenge views.
+
+An unclaimed browser-local Attempt for the same Drop must not continue appearing as the user's current score merely because it belongs to the current browser.
+
+Do not surface two canonical scores.
+
+The originating anonymous Attempt may remain stored for provenance / history according to the data model, but it is not the authenticated Profile's canonical progress.
+
+## Signed-In Return Acceptance
+
+### LOCKED
+
+V1 durable identity is only successful if signed-in return works across browsers / devices.
+
+Required acceptance test:
+
+1. Browser A plays a Drop anonymously.
+2. User creates Profile and verifies email.
+3. Existing score is claimed.
+4. Browser B starts without Browser A's local `playerId`.
+5. User authenticates with the same email.
+6. Did You Know restores the same Profile.
+7. The previously completed Drop appears completed with the original score.
+
+If this does not work, the milestone has not solved durable Journey continuity.
+
+---
+
+# 13. Sharing
+
+## LOCKED
+
+Sharing contains exactly two V1 options:
+
+* `Challenge on WhatsApp`
+* `Copy Invite`
 
 ## Challenge On WhatsApp
 
@@ -1359,25 +1616,25 @@ After a Result, the primary CTA is:
 
 `Challenge a friend`
 
-For an unnamed Player:
+For an anonymous Player without an authenticated Profile:
 
 `Challenge a friend`
 
--> lightweight name-capture sheet or state
+-> Profile / auth flow
 
--> `What should your friend see your name as?`
+-> successful email-code verification
 
--> save `displayName` to the existing Player
+-> claim eligible anonymous progress
 
--> reuse or create the Player's reusable Invite for this Drop
+-> reuse or create the Profile's reusable Invite for this Drop
 
 -> share choices
 
-For a named Player:
+For an authenticated Profile:
 
 `Challenge a friend`
 
--> reuse or create the Player's reusable Invite for this Drop
+-> reuse or create the Profile's reusable Invite for this Drop
 
 -> share choices
 
@@ -1398,7 +1655,7 @@ Default Invite copy does not need the Drop title.
 
 ---
 
-# 13. Episodic Release Model
+# 14. Episodic Release Model
 
 ## LOCKED
 
@@ -1430,7 +1687,7 @@ Exact release cadence is still OPEN.
 
 ---
 
-# 14. Content Creation / CMS Principle
+# 15. Content Creation / CMS Principle
 
 ## LOCKED
 
@@ -1485,7 +1742,7 @@ The eventual graphical CMS should be a UI over this same content contract rather
 
 ---
 
-# 15. Source-Of-Truth Principle
+# 16. Source-Of-Truth Principle
 
 ## LOCKED
 
@@ -1509,10 +1766,12 @@ Canonical for:
 The backend should eventually persist facts such as:
 
 * Player;
+* Profile;
 * Attempt;
 * Answer;
 * Invite;
 * Attempt's Source Invite;
+* Profile claim / ownership facts;
 * relevant analytics events.
 
 ## Derived State
@@ -1535,7 +1794,7 @@ Exact backend schema is NOT yet defined.
 
 ---
 
-# 16. LIVE Drop Immutability
+# 17. LIVE Drop Immutability
 
 ## LOCKED
 
@@ -1557,7 +1816,7 @@ Detailed revision mechanics are not required in V1.
 
 ---
 
-# 17. Timer
+# 18. Timer
 
 ## OPEN
 
@@ -1580,7 +1839,7 @@ This should be resolved from the actual UX journey.
 
 ---
 
-# 18. Post-Drop Lesson
+# 19. Post-Drop Lesson
 
 ## OPEN
 
@@ -1600,7 +1859,7 @@ Do not assume it exists.
 
 ---
 
-# 19. Aggregate Social Context
+# 20. Aggregate Social Context
 
 ## OPEN
 
@@ -1618,7 +1877,7 @@ Which aggregates genuinely improve V1 remains unresolved.
 
 ---
 
-# 20. Home Prioritization
+# 21. Home Prioritization
 
 ## CURRENT DIRECTION
 
@@ -1635,7 +1894,7 @@ This is not fully locked until the returning-Player journey is specified.
 
 ---
 
-# 21. Fresh Direct Home
+# 22. Fresh Direct Home
 
 ## LOCKED
 
@@ -1665,7 +1924,7 @@ Exact marketing copy remains a design/copy decision.
 Fresh Direct Home should not require:
 
 * name;
-* signup;
+* authentication / Profile creation;
 * Area;
 * Journey;
 * upcoming Drop;
@@ -1679,7 +1938,53 @@ Do not create a separate Drop-intro screen in V1.
 
 ---
 
-# 22. Initial V1 Technology Direction
+# 23. Result Escape And Minimal Space Home
+
+## LOCKED
+
+The Result screen must not be a dead end.
+
+Every Result should provide:
+
+* primary action: `Challenge a friend`;
+* secondary action: `Back to Space`;
+* quiet persistence prompt for anonymous Players: `Save my journey`.
+
+`Back to Space` must work without authentication.
+
+It must not route a completed Player back into the same completed Result forever.
+
+For a Player or Profile who has completed all currently released Space content, the minimal Space Home may show:
+
+* `DID YOU KNOW?`;
+* `SPACE`;
+* `You're caught up.`;
+* completed Drop title;
+* `Completed · X/5`;
+* `View result`;
+* `More Space coming soon.`
+
+For an anonymous Player, the minimal Space Home should also quietly communicate:
+
+* progress is saved on this device;
+* `Save my journey`.
+
+For an authenticated Profile, do not show the saved-on-this-device warning.
+
+This is intentionally not the full Journey 3 experience.
+
+Do not add yet:
+
+* Knowledge Map;
+* exploration percentages;
+* back-catalog redesign;
+* release countdowns;
+* full returning-player Home behavior;
+* aggregate social statistics.
+
+---
+
+# 24. Initial V1 Technology Direction
 
 ## LOCKED
 
@@ -1695,20 +2000,24 @@ Current engineering stack:
 | Deployment | Vercel |
 | Package manager | npm |
 | Source control | Git + GitHub |
-| Authentication | None |
+| Authentication | Convex Auth, client-side email one-time code |
 | Content | Source-controlled typed data |
 | Runtime state | Convex |
 | Mobile target | Design around ~375px first |
 | Browser support | Modern Chrome / Safari / mobile browsers |
 | Architecture | Minimal, V1-specific, no speculative abstractions |
 
-The repository/application has not yet been scaffolded.
+The repository/application has been scaffolded with the M0 foundation.
 
-Detailed engineering setup will be defined after the user journeys and product states are clearer.
+M2.1 introduces durable authentication.
+
+Use Convex Auth directly for V1.
+
+Do not introduce Clerk, Better Auth, or another identity provider unless Convex Auth presents a concrete blocker for the required email one-time-code flow and the blocker is explicitly reviewed.
 
 ---
 
-# 23. Explicitly Retired V1 Concepts
+# 25. Explicitly Retired V1 Concepts
 
 ## LOCKED
 
@@ -1734,7 +2043,7 @@ A future synchronous multiplayer / Kahoot-style mode is not prohibited; it is si
 
 ---
 
-# 24. Current Product Model Summary
+# 26. Current Product Model Summary
 
 ## Content
 
@@ -1742,11 +2051,17 @@ A future synchronous multiplayer / Kahoot-style mode is not prohibited; it is si
 
 ## Player Activity
 
+Anonymous:
+
 `Player -> Attempt -> Answers -> Result`
+
+Authenticated:
+
+`Profile -> Attempt -> Answers -> Result`
 
 ## Social Distribution
 
-`Player -> Invite -> another Player's Source Invite`
+`Profile -> Invite -> another Player/Profile's Source Invite`
 
 ## Long-Term Experience
 
@@ -1768,7 +2083,7 @@ A future synchronous multiplayer / Kahoot-style mode is not prohibited; it is si
 
 ---
 
-# 25. Journey 1 - Fresh Player Starts Directly
+# 27. Journey 1 - Fresh Player Starts Directly
 
 ## LOCKED
 
@@ -1819,7 +2134,8 @@ Use the locked Direct Result contract:
 * Drop title;
 * social provocation around the Player's own Result;
 * `Challenge a friend`;
-* quiet `Your Space Journey` action.
+* `Back to Space`;
+* quiet `Save my journey` prompt when the Player is anonymous.
 
 Do not show aggregate statistics or Question-by-Question recap on the default Direct Result.
 
@@ -1840,11 +2156,19 @@ Journey 1's social handoff is complete when:
 
 If the Player chooses:
 
-`Your Space Journey`
+`Back to Space`
 
-Journey 1 ends at that navigation decision.
+show the minimal Space Home / caught-up state when appropriate.
 
-Do not define the Journey destination here. Journey 3 will define that experience.
+Do not define the full Journey destination here. Journey 3 will define the richer Journey experience.
+
+## Step 8C - Persistence Path
+
+If an anonymous Player chooses:
+
+`Save my journey`
+
+follow the locked Profile / auth flow, claim eligible anonymous progress, and return to Space.
 
 ## Screen / State Inventory
 
@@ -1857,7 +2181,7 @@ Major surfaces:
 Transient states:
 
 4. committed-Answer acknowledgement;
-5. name capture, only when required for sharing;
+5. Profile / auth flow, only when required for sharing or saving Journey;
 6. share choice.
 
 Question and Reveal are states of the same play experience.
@@ -1871,14 +2195,14 @@ Do not resolve these from Journey 1:
 * exact Home marketing copy;
 * exact visual design;
 * whether Home shows approximate duration;
-* exact name-capture sheet styling;
+* exact Profile / auth UI styling;
 * exact share-sheet layout;
 * optional Invite-copy preview;
-* Journey destination.
+* full Journey destination.
 
 ---
 
-# 26. Journey 2 - Fresh Player Arrives Through An Invite
+# 28. Journey 2 - Fresh Player Arrives Through An Invite
 
 ## LOCKED
 
@@ -1933,7 +2257,7 @@ The primary action is semantically:
 Do not show:
 
 * name field;
-* signup;
+* authentication / Profile creation;
 * Journey;
 * Knowledge Map;
 * upcoming Drops;
@@ -1946,7 +2270,7 @@ Do not show:
 
 When the recipient intentionally activates the Invite landing CTA:
 
-* they may remain unnamed;
+* they may remain anonymous and unauthenticated;
 * their canonical Attempt for this Drop begins or resumes according to existing Attempt rules;
 * if this is the first start of that Attempt, the Challenger's Invite becomes the Attempt's Source Invite;
 * they proceed directly to Question 1.
@@ -1975,7 +2299,7 @@ The Result must answer the acquisition question:
 
 Then it pivots to the current Player's own Result as the next social object.
 
-No name is required before the Player sees this Result.
+No identity is required before the Player sees this Result.
 
 ## Step 9 - Propagate Onward
 
@@ -2031,8 +2355,8 @@ If the browser already contains a Player identity but that Player has not starte
 
 * Invite landing still uses the direct Challenger context;
 * starting follows the normal canonical Attempt / Source Invite rules;
-* named Players retain their existing name;
-* unnamed Players remain unnamed until they choose to Challenge someone later.
+* authenticated Profiles retain their existing display name;
+* anonymous Players remain anonymous until they choose to Challenge someone or save their Journey later.
 
 Do not expand already-completed behavior here; Journey 4 will cover it.
 
@@ -2048,7 +2372,7 @@ Major experiences:
 Transient states:
 
 5. committed-Answer acknowledgement;
-6. name capture only on onward Challenge when required;
+6. Profile / auth flow only on onward Challenge or Save my journey when required;
 7. share choice;
 8. invalid Invite recovery.
 
@@ -2060,14 +2384,74 @@ Do not resolve these from Journey 2:
 
 * exact landing copy;
 * exact CTA wording beyond semantic intent;
-* whether `No signup` appears visibly;
+* whether `No authentication required before play` appears visibly;
 * exact current/latest badge treatment;
 * exact Open Graph / social-preview implementation;
 * invalid-link final copy polish.
 
 ---
 
-# 27. Next Section To Define
+# 29. M2.1 - Persistent Profile + Result Escape
+
+## LOCKED
+
+M2.1 is a focused product correction and foundation milestone.
+
+It exists to establish:
+
+* anonymous play remains possible;
+* Result is no longer a dead end;
+* durable Profile identity exists for saving progress across browsers / devices;
+* Challenge identity belongs to an authenticated Profile;
+* eligible anonymous progress is claimed after successful authentication.
+
+M2.1 should not become Journey 3.
+
+## In Scope
+
+M2.1 includes:
+
+* Convex Auth client-side email one-time-code authentication;
+* transactional email delivery setup for those one-time codes;
+* Profile creation / loading after successful authentication;
+* claim of eligible anonymous Attempts into the authenticated Profile;
+* server-authorized Profile ownership and claiming;
+* preservation of originating `playerId` provenance;
+* preservation of `sourceInviteId` attribution;
+* Profile-owned progress taking precedence after authentication;
+* `Save my journey`;
+* `Challenge a friend` requiring Profile authentication when the Player is anonymous;
+* Profile-owned reusable Invites;
+* `Back to Space`;
+* minimal caught-up Space Home;
+* signed-in cross-browser / cross-device return acceptance.
+
+## Out Of Scope
+
+Do not implement in M2.1:
+
+* Knowledge Map;
+* exploration percentages;
+* back-catalog redesign;
+* scheduled next-Drop countdowns;
+* email notifications;
+* lifecycle email campaigns;
+* account settings;
+* passwords;
+* usernames;
+* OAuth;
+* third-party identity providers;
+* authenticated Next.js middleware;
+* authenticated Server Components;
+* SSR auth;
+* API-route auth;
+* aggregate statistics;
+* public participant lists;
+* visible propagation graph.
+
+---
+
+# 30. Next Section To Define
 
 ## TODO - Concrete V1 User Journeys
 
@@ -2090,7 +2474,7 @@ These journeys should determine:
 * minimum screens;
 * screen versus state boundaries;
 * Drop intro behavior;
-* name capture;
+* Profile / auth behavior where relevant;
 * Result variants;
 * timer decision;
 * post-Drop lesson decision;
