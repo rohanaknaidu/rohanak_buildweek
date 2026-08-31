@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as directFlow from "../directFlow.js";
 import type * as health from "../health.js";
 
 import type {
@@ -17,6 +18,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  directFlow: typeof directFlow;
   health: typeof health;
 }>;
 
