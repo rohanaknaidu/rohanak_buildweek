@@ -153,6 +153,10 @@ export function getLiveDrop(now = new Date()) {
     )[0];
 }
 
+export function isDropLive(drop: Drop, now = new Date()) {
+  return new Date(drop.releaseAt).getTime() <= now.getTime();
+}
+
 export function getDropById(dropId: string) {
   return drops.find((drop) => drop.id === dropId) ?? null;
 }

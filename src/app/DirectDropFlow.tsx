@@ -1,10 +1,14 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
+import Link from "next/link";
+import type { ReactNode } from "react";
 import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import { api } from "../../convex/_generated/api";
 
 type PlayerIdState = "loading" | string;
+type ShareState = "closed" | "name" | "choices";
+
 const playerIdStorageKey = "did-you-know.playerId";
 
 function subscribeToPlayerId() {
@@ -35,7 +39,7 @@ function getClientPlayerIdSnapshot(): PlayerIdState {
   return getOrCreatePlayerId();
 }
 
-export function DirectDropFlow() {
+export function DirectDropFlow({ inviteId }: { inviteId?: string }) {
   const playerId = useSyncExternalStore(
     subscribeToPlayerId,
     getClientPlayerIdSnapshot,
@@ -46,23 +50,46 @@ export function DirectDropFlow() {
     return <ShellLoading />;
   }
 
-  return <DirectDropFlowInner playerId={playerId} />;
+  return <DropFlowInner inviteId={inviteId} playerId={playerId} />;
 }
 
-function DirectDropFlowInner({ playerId }: { playerId: string }) {
-  const flowState = useQuery(api.directFlow.getFlowState, { playerId });
+function DropFlowInner({
+  inviteId,
+  playerId,
+}: {
+  inviteId?: string;
+  playerId: string;
+}) {
+  const directFlowState = useQuery(
+    api.directFlow.getFlowState,
+    inviteId ? "skip" : { playerId },
+  );
+  const inviteFlowState = useQuery(
+    api.directFlow.getInviteFlowState,
+    inviteId ? { playerId, inviteId } : "skip",
+  );
+  const flowState = inviteId ? inviteFlowState : directFlowState;
   const startAttempt = useMutation(api.directFlow.startAttempt);
   const submitAnswer = useMutation(api.directFlow.submitAnswer);
   const continueAfterReveal = useMutation(api.directFlow.continueAfterReveal);
+  const setDisplayName = useMutation(api.directFlow.setDisplayName);
+  const getOrCreateInvite = useMutation(api.directFlow.getOrCreateInvite);
   const [isPending, startTransition] = useTransition();
   const [committedAnswer, setCommittedAnswer] = useState<{
     questionId: string;
     optionId: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [shareState, setShareState] = useState<ShareState>("closed");
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
 
   if (flowState === undefined) {
     return <ShellLoading />;
+  }
+
+  if ("invalidInvite" in flowState && flowState.invalidInvite) {
+    return <InvalidInviteScreen />;
   }
 
   if (!flowState.drop) {
@@ -80,33 +107,151 @@ function DirectDropFlowInner({ playerId }: { playerId: string }) {
     );
   }
 
+  const challenger = flowState.challenger ?? null;
+
+  const handleStart = () => {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await startAttempt({ playerId, inviteId });
+      } catch {
+        setError("Could not start the challenge. Please try again.");
+      }
+    });
+  };
+
+  const ensureInvite = async () => {
+    const origin = window.location.origin;
+    const result = await getOrCreateInvite({
+      playerId,
+      dropId: flowState.drop.id,
+      origin,
+    });
+    setShareMessage(result.invite.message);
+    return result.invite;
+  };
+
+  const openShareChoices = () => {
+    setError(null);
+    setCopyStatus(null);
+    setShareMessage(null);
+
+    if (!flowState.player?.displayName) {
+      setShareState("name");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        await ensureInvite();
+        setShareState("choices");
+      } catch {
+        setError("Could not prepare your invite. Please try again.");
+      }
+    });
+  };
+
+  const saveNameAndContinue = (displayName: string) => {
+    setError(null);
+    setCopyStatus(null);
+    startTransition(async () => {
+      try {
+        await setDisplayName({ playerId, displayName });
+        await ensureInvite();
+        setShareState("choices");
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Could not save your name. Please try again.",
+        );
+      }
+    });
+  };
+
+  const copyInvite = () => {
+    if (!shareMessage) {
+      setError("Could not copy that invite. Please try again.");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        await copyText(shareMessage);
+        setCopyStatus("Invite copied");
+      } catch {
+        setError("Could not copy that invite. Please try again.");
+      }
+    });
+  };
+
+  const openWhatsApp = () => {
+    if (!shareMessage) {
+      setError("Could not open WhatsApp. Please try again.");
+      return;
+    }
+
+    window.location.href = `https://wa.me/?text=${encodeURIComponent(
+      shareMessage,
+    )}`;
+  };
+
   if (!flowState.attemptState) {
+    if (challenger) {
+      return (
+        <InviteLandingScreen
+          challenger={challenger}
+          disabled={isPending}
+          drop={flowState.drop}
+          error={error}
+          onStart={handleStart}
+        />
+      );
+    }
+
     return (
       <HomeScreen
-        drop={flowState.drop}
         disabled={isPending}
+        drop={flowState.drop}
         error={error}
-        onPlay={() => {
-          setError(null);
-          startTransition(async () => {
-            try {
-              await startAttempt({ playerId });
-            } catch {
-              setError("Could not start the challenge. Please try again.");
-            }
-          });
-        }}
+        onPlay={handleStart}
       />
     );
   }
 
   if (flowState.attemptState.attempt.stage === "result") {
     return (
-      <ResultScreen
-        drop={flowState.drop}
-        score={flowState.attemptState.result?.score ?? 0}
-        total={flowState.drop.questionCount}
-      />
+      <>
+        <ResultScreen
+          challenger={challenger}
+          disabled={isPending}
+          drop={flowState.drop}
+          error={error}
+          onChallenge={openShareChoices}
+          score={flowState.attemptState.result?.score ?? 0}
+          total={flowState.drop.questionCount}
+        />
+        {shareState === "name" ? (
+          <NameCaptureSheet
+            disabled={isPending}
+            error={error}
+            onClose={() => setShareState("closed")}
+            onSubmit={saveNameAndContinue}
+          />
+        ) : null}
+        {shareState === "choices" ? (
+          <ShareChoiceSheet
+            copyStatus={copyStatus}
+            disabled={isPending}
+            onClose={() => setShareState("closed")}
+            onCopy={copyInvite}
+            onWhatsApp={openWhatsApp}
+            score={flowState.attemptState.result?.score ?? 0}
+            topicTitle={flowState.drop.topic.title}
+            total={flowState.drop.questionCount}
+          />
+        ) : null}
+      </>
     );
   }
 
@@ -119,10 +264,6 @@ function DirectDropFlowInner({ playerId }: { playerId: string }) {
   return (
     <PlayScreen
       areaTitle={flowState.drop.area.title}
-      question={question}
-      questionIndex={flowState.attemptState.attempt.currentQuestionIndex}
-      questionCount={flowState.drop.questionCount}
-      reveal={flowState.attemptState.reveal}
       committedOptionId={
         committedAnswer?.questionId === question.id
           ? committedAnswer.optionId
@@ -130,13 +271,30 @@ function DirectDropFlowInner({ playerId }: { playerId: string }) {
       }
       disabled={isPending}
       error={error}
+      onContinue={() => {
+        setError(null);
+        startTransition(async () => {
+          try {
+            await continueAfterReveal({
+              playerId,
+              dropId: flowState.drop.id,
+            });
+          } catch {
+            setError("Could not continue. Please try again.");
+          }
+        });
+      }}
       onSubmit={(selectedOptionId) => {
-        setCommittedAnswer({ questionId: question.id, optionId: selectedOptionId });
+        setCommittedAnswer({
+          questionId: question.id,
+          optionId: selectedOptionId,
+        });
         setError(null);
         startTransition(async () => {
           try {
             await submitAnswer({
               playerId,
+              dropId: flowState.drop.id,
               questionId: question.id,
               selectedOptionId,
             });
@@ -146,16 +304,10 @@ function DirectDropFlowInner({ playerId }: { playerId: string }) {
           }
         });
       }}
-      onContinue={() => {
-        setError(null);
-        startTransition(async () => {
-          try {
-            await continueAfterReveal({ playerId });
-          } catch {
-            setError("Could not continue. Please try again.");
-          }
-        });
-      }}
+      question={question}
+      questionCount={flowState.drop.questionCount}
+      questionIndex={flowState.attemptState.attempt.currentQuestionIndex}
+      reveal={flowState.attemptState.reveal}
     />
   );
 }
@@ -187,7 +339,9 @@ function HomeScreen({
           <h2 className="mt-3 text-2xl font-semibold leading-snug">
             {drop.title}
           </h2>
-          <p className="mt-3 text-base text-[#6d6255]">{drop.questionCount} questions</p>
+          <p className="mt-3 text-base text-[#6d6255]">
+            {drop.questionCount} questions
+          </p>
         </div>
         <button
           className="mt-8 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
@@ -196,6 +350,58 @@ function HomeScreen({
           type="button"
         >
           {disabled ? "Starting..." : "Play"}
+        </button>
+        {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
+      </section>
+    </main>
+  );
+}
+
+function InviteLandingScreen({
+  challenger,
+  drop,
+  disabled,
+  error,
+  onStart,
+}: {
+  challenger: Challenger;
+  drop: PublicDrop;
+  disabled: boolean;
+  error: string | null;
+  onStart: () => void;
+}) {
+  const prompt =
+    challenger.result.score === challenger.result.total
+      ? "Can you match that?"
+      : "Can you beat that?";
+
+  return (
+    <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
+      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
+          Did You Know?
+        </p>
+        <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-normal">
+          {challenger.displayName} challenged you on {drop.topic.title}
+        </h1>
+        <p className="mt-5 text-2xl font-semibold text-[#3b6b82]">
+          {challenger.displayName} got {challenger.result.score}/
+          {challenger.result.total}
+        </p>
+        <p className="mt-3 text-xl font-semibold">{prompt}</p>
+        <div className="mt-8 border-y border-[#d8cdbd] py-6">
+          <h2 className="text-2xl font-semibold leading-snug">{drop.title}</h2>
+          <p className="mt-3 text-base text-[#6d6255]">
+            {drop.questionCount} questions. Learn something after every answer.
+          </p>
+        </div>
+        <button
+          className="mt-8 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={disabled}
+          onClick={onStart}
+          type="button"
+        >
+          {disabled ? "Starting..." : "Take the challenge"}
         </button>
         {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
       </section>
@@ -263,12 +469,12 @@ function PlayScreen({
 
           {isReveal ? (
             <RevealPanel
-              isCorrect={reveal.correct}
-              questionIndex={questionIndex}
-              questionCount={questionCount}
-              reveal={reveal}
-              onContinue={onContinue}
               disabled={disabled}
+              isCorrect={reveal.correct}
+              onContinue={onContinue}
+              questionCount={questionCount}
+              questionIndex={questionIndex}
+              reveal={reveal}
             />
           ) : null}
 
@@ -295,7 +501,8 @@ function ProgressIndicator({
     >
       <div aria-hidden="true" className="flex gap-1.5">
         {Array.from({ length: total }, (_, index) => {
-          const isCompleted = index < currentIndex || (index === currentIndex && isReveal);
+          const isCompleted =
+            index < currentIndex || (index === currentIndex && isReveal);
           const isCurrent = index === currentIndex && !isReveal;
 
           return (
@@ -429,18 +636,29 @@ function RevealPanel({
 }
 
 function ResultScreen({
+  challenger,
   drop,
   score,
   total,
+  disabled,
+  error,
+  onChallenge,
 }: {
+  challenger: Challenger | null;
   drop: PublicDrop;
   score: number;
   total: number;
+  disabled: boolean;
+  error: string | null;
+  onChallenge: () => void;
 }) {
   const challengeCopy =
     score === total
       ? `Think someone can match your ${score}/${total}?`
       : `Think someone can beat your ${score}/${total}?`;
+  const comparison = challenger
+    ? getComparisonCopy(score, challenger)
+    : null;
 
   return (
     <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
@@ -451,29 +669,200 @@ function ResultScreen({
         <h1 className="mt-4 text-7xl font-semibold tracking-normal">
           {score}/{total}
         </h1>
-        <p className="mt-5 text-xl leading-8">
-          You knew {score} of {total} on this {drop.topic.title} challenge.
-        </p>
+        {comparison ? (
+          <>
+            <p className="mt-5 text-2xl font-semibold leading-8">
+              {comparison.headline}
+            </p>
+            <p className="mt-3 text-base text-[#6d6255]">
+              You {score}/{total} | {challenger?.displayName}{" "}
+              {challenger?.result.score}/{challenger?.result.total}
+            </p>
+          </>
+        ) : (
+          <p className="mt-5 text-xl leading-8">
+            You knew {score} of {total} on this {drop.topic.title} challenge.
+          </p>
+        )}
         <p className="mt-5 text-base font-medium text-[#6d6255]">
           {drop.title}
         </p>
         <div className="mt-10">
           <p className="text-lg font-semibold">{challengeCopy}</p>
           <button
-            className="mt-4 min-h-14 w-full rounded-lg border border-[#b9ab98] bg-[#ebe2d5] px-5 text-base font-semibold text-[#6d6255]"
-            disabled
+            className="mt-4 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={disabled}
+            onClick={onChallenge}
             type="button"
           >
-            Challenge a friend - coming in M2
+            {disabled ? "Preparing..." : "Challenge a friend"}
           </button>
           <button
-            className="mt-3 min-h-12 w-full text-base font-semibold text-[#3b6b82]"
+            className="mt-3 min-h-12 w-full text-base font-semibold text-[#3b6b82] disabled:opacity-70"
             disabled
             type="button"
           >
             Your Space Journey - coming later
           </button>
+          {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
         </div>
+      </section>
+    </main>
+  );
+}
+
+function NameCaptureSheet({
+  disabled,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  disabled: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSubmit: (displayName: string) => void;
+}) {
+  const [displayName, setDisplayName] = useState("");
+
+  return (
+    <Sheet onClose={onClose} title="Challenge a friend">
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit(displayName);
+        }}
+      >
+        <label
+          className="block text-sm font-semibold text-[#6d6255]"
+          htmlFor="display-name"
+        >
+          What should your friend see your name as?
+        </label>
+        <input
+          autoComplete="given-name"
+          autoFocus
+          className="mt-3 min-h-14 w-full rounded-lg border border-[#d8cdbd] bg-white px-4 text-base text-[#221b14] outline-none focus:ring-4 focus:ring-[#8fb7c9]"
+          disabled={disabled}
+          id="display-name"
+          maxLength={32}
+          onChange={(event) => setDisplayName(event.target.value)}
+          placeholder="First name"
+          type="text"
+          value={displayName}
+        />
+        {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
+        <button
+          className="mt-5 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={disabled || displayName.trim().length === 0}
+          type="submit"
+        >
+          {disabled ? "Saving..." : "Continue"}
+        </button>
+      </form>
+    </Sheet>
+  );
+}
+
+function ShareChoiceSheet({
+  copyStatus,
+  disabled,
+  onClose,
+  onCopy,
+  onWhatsApp,
+  score,
+  total,
+  topicTitle,
+}: {
+  copyStatus: string | null;
+  disabled: boolean;
+  onClose: () => void;
+  onCopy: () => void;
+  onWhatsApp: () => void;
+  score: number;
+  total: number;
+  topicTitle: string;
+}) {
+  return (
+    <Sheet onClose={onClose} title="Challenge someone">
+      <p className="text-sm font-medium text-[#6d6255]">
+        Your score: {score}/{total} | {topicTitle}
+      </p>
+      <button
+        className="mt-5 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={disabled}
+        onClick={onWhatsApp}
+        type="button"
+      >
+        Challenge on WhatsApp
+      </button>
+      <button
+        className="mt-3 min-h-14 w-full rounded-lg border border-[#b9ab98] bg-white px-5 text-base font-semibold text-[#221b14] shadow-sm transition hover:border-[#15262f] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={disabled}
+        onClick={onCopy}
+        type="button"
+      >
+        Copy Invite
+      </button>
+      {copyStatus ? (
+        <p className="mt-3 text-sm font-semibold text-[#2f6f4e]">
+          {copyStatus}
+        </p>
+      ) : null}
+    </Sheet>
+  );
+}
+
+function Sheet({
+  children,
+  onClose,
+  title,
+}: {
+  children: ReactNode;
+  onClose: () => void;
+  title: string;
+}) {
+  return (
+    <div className="fixed inset-0 z-10 flex items-end bg-black/30 px-4 pb-4">
+      <section
+        aria-labelledby="share-sheet-title"
+        className="mx-auto w-full max-w-md rounded-lg bg-[#f7f3ec] p-5 text-[#221b14] shadow-xl"
+        role="dialog"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-xl font-semibold" id="share-sheet-title">
+            {title}
+          </h2>
+          <button
+            className="min-h-10 min-w-10 rounded-full text-xl leading-none text-[#6d6255] hover:bg-[#ebe2d5] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9]"
+            onClick={onClose}
+            type="button"
+          >
+            <span aria-hidden="true">x</span>
+            <span className="sr-only">Close</span>
+          </button>
+        </div>
+        <div className="mt-5">{children}</div>
+      </section>
+    </div>
+  );
+}
+
+function InvalidInviteScreen() {
+  return (
+    <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
+      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
+          Did You Know?
+        </p>
+        <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-normal">
+          This challenge link isn&apos;t available.
+        </h1>
+        <Link
+          className="mt-8 flex min-h-14 w-full items-center justify-center rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9]"
+          href="/"
+        >
+          Play the latest Space challenge
+        </Link>
       </section>
     </main>
   );
@@ -485,6 +874,35 @@ function ShellLoading() {
       <p className="text-sm font-medium text-[#6d6255]">Loading...</p>
     </main>
   );
+}
+
+async function copyText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  document.body.appendChild(textArea);
+  textArea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textArea);
+}
+
+function getComparisonCopy(score: number, challenger: Challenger) {
+  if (score > challenger.result.score) {
+    return { headline: `You beat ${challenger.displayName}.` };
+  }
+
+  if (score < challenger.result.score) {
+    return { headline: `${challenger.displayName} scored higher.` };
+  }
+
+  return { headline: `You tied ${challenger.displayName}.` };
 }
 
 type PublicDrop = {
@@ -520,5 +938,14 @@ type Reveal = {
   source: {
     label: string;
     url: string;
+  };
+};
+
+type Challenger = {
+  playerId: string;
+  displayName: string;
+  result: {
+    score: number;
+    total: number;
   };
 };

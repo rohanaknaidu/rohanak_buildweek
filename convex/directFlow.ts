@@ -6,17 +6,39 @@ import {
   getDropById,
   getLiveDrop,
   getQuestionById,
+  isDropLive,
   toPublicDrop,
   toPublicQuestion,
 } from "../content/drops";
 
 type AnswerDoc = Doc<"answers">;
+type InviteDoc = Doc<"invites">;
 
 async function getPlayerByLocalId(ctx: QueryCtx | MutationCtx, playerId: string) {
   return await ctx.db
     .query("players")
     .withIndex("by_playerId", (q) => q.eq("playerId", playerId))
     .unique();
+}
+
+async function ensurePlayer(ctx: MutationCtx, playerId: string) {
+  const existingPlayer = await getPlayerByLocalId(ctx, playerId);
+
+  if (existingPlayer) {
+    return existingPlayer;
+  }
+
+  const playerDocId = await ctx.db.insert("players", {
+    playerId,
+    createdAt: Date.now(),
+  });
+  const player = await ctx.db.get(playerDocId);
+
+  if (!player) {
+    throw new Error("Player could not be created.");
+  }
+
+  return player;
 }
 
 async function getAttempt(
@@ -39,8 +61,42 @@ async function getAnswers(ctx: QueryCtx | MutationCtx, attemptId: Id<"attempts">
     .collect();
 }
 
+async function getInviteByString(ctx: QueryCtx | MutationCtx, inviteId: string) {
+  const normalizedId = ctx.db.normalizeId("invites", inviteId);
+
+  if (!normalizedId) {
+    return null;
+  }
+
+  return await ctx.db.get(normalizedId);
+}
+
+async function getReusableInvite(
+  ctx: QueryCtx | MutationCtx,
+  inviterPlayerId: string,
+  dropId: string,
+) {
+  return await ctx.db
+    .query("invites")
+    .withIndex("by_inviter_drop", (q) =>
+      q.eq("inviterPlayerId", inviterPlayerId).eq("dropId", dropId),
+    )
+    .unique();
+}
+
 function getScore(answers: AnswerDoc[]) {
   return answers.filter((answer) => answer.correct).length;
+}
+
+function getPublicPlayer(player: Doc<"players"> | null) {
+  if (!player) {
+    return null;
+  }
+
+  return {
+    playerId: player.playerId,
+    displayName: player.displayName,
+  };
 }
 
 function makeRevealPayload(answer: AnswerDoc) {
@@ -67,6 +123,21 @@ function makeRevealPayload(answer: AnswerDoc) {
   };
 }
 
+function makeShareText({
+  score,
+  total,
+  topicTitle,
+  inviteUrl,
+}: {
+  score: number;
+  total: number;
+  topicTitle: string;
+  inviteUrl: string;
+}) {
+  const comparisonVerb = score === total ? "match" : "beat";
+  return `I got ${score}/${total} on this ${topicTitle} challenge. Think you can ${comparisonVerb} me? ${inviteUrl}`;
+}
+
 function getAttemptPayload(attempt: Doc<"attempts">, answers: AnswerDoc[]) {
   const drop = getDropById(attempt.dropId);
   if (!drop) {
@@ -86,6 +157,7 @@ function getAttemptPayload(attempt: Doc<"attempts">, answers: AnswerDoc[]) {
       currentQuestionIndex: attempt.currentQuestionIndex,
       completedAt: attempt.completedAt,
       resultViewedAt: attempt.resultViewedAt,
+      sourceInviteId: attempt.sourceInviteId,
     },
     currentQuestion: currentQuestion ? toPublicQuestion(currentQuestion) : null,
     reveal: currentAnswer ? makeRevealPayload(currentAnswer) : null,
@@ -99,20 +171,102 @@ function getAttemptPayload(attempt: Doc<"attempts">, answers: AnswerDoc[]) {
   };
 }
 
-export const getHome = query({
-  args: {},
-  handler: () => {
-    const drop = getLiveDrop();
+async function getInviteContext(
+  ctx: QueryCtx | MutationCtx,
+  inviteId: string,
+) {
+  const invite = await getInviteByString(ctx, inviteId);
 
-    if (!drop) {
-      return { drop: null };
-    }
+  if (!invite) {
+    return null;
+  }
 
+  const drop = getDropById(invite.dropId);
+
+  if (!drop || !isDropLive(drop)) {
+    return null;
+  }
+
+  const inviter = await getPlayerByLocalId(ctx, invite.inviterPlayerId);
+
+  if (!inviter?.displayName) {
+    return null;
+  }
+
+  const inviterAttempt = await getAttempt(ctx, invite.inviterPlayerId, drop.id);
+
+  if (!inviterAttempt || inviterAttempt.stage !== "result") {
+    return null;
+  }
+
+  const inviterAnswers = await getAnswers(ctx, inviterAttempt._id);
+
+  return {
+    invite,
+    drop,
+    challenger: {
+      playerId: inviter.playerId,
+      displayName: inviter.displayName,
+      result: {
+        score: getScore(inviterAnswers),
+        total: drop.questions.length,
+      },
+    },
+  };
+}
+
+async function getFlowPayload({
+  ctx,
+  playerId,
+  dropId,
+  invite,
+  challenger,
+}: {
+  ctx: QueryCtx | MutationCtx;
+  playerId: string;
+  dropId: string;
+  invite: InviteDoc | null;
+  challenger: {
+    playerId: string;
+    displayName: string;
+    result: { score: number; total: number };
+  } | null;
+}) {
+  const drop = getDropById(dropId);
+
+  if (!drop) {
+    return {
+      drop: null,
+      player: null,
+      attemptState: null,
+      invite: null,
+      challenger: null,
+    };
+  }
+
+  const player = await getPlayerByLocalId(ctx, playerId);
+  const attempt = await getAttempt(ctx, playerId, drop.id);
+
+  if (!attempt) {
     return {
       drop: toPublicDrop(drop),
+      player: getPublicPlayer(player),
+      attemptState: null,
+      invite: invite ? { id: invite._id } : null,
+      challenger,
     };
-  },
-});
+  }
+
+  const answers = await getAnswers(ctx, attempt._id);
+
+  return {
+    drop: toPublicDrop(drop),
+    player: getPublicPlayer(player),
+    attemptState: getAttemptPayload(attempt, answers),
+    invite: invite ? { id: invite._id } : null,
+    challenger,
+  };
+}
 
 export const getFlowState = query({
   args: {
@@ -122,26 +276,53 @@ export const getFlowState = query({
     const drop = getLiveDrop();
 
     if (!drop) {
-      return { drop: null, player: null, attemptState: null };
-    }
-
-    const player = await getPlayerByLocalId(ctx, args.playerId);
-    const attempt = await getAttempt(ctx, args.playerId, drop.id);
-
-    if (!attempt) {
       return {
-        drop: toPublicDrop(drop),
-        player: player ? { playerId: player.playerId } : null,
+        drop: null,
+        player: null,
         attemptState: null,
+        invite: null,
+        challenger: null,
       };
     }
 
-    const answers = await getAnswers(ctx, attempt._id);
+    return await getFlowPayload({
+      ctx,
+      playerId: args.playerId,
+      dropId: drop.id,
+      invite: null,
+      challenger: null,
+    });
+  },
+});
+
+export const getInviteFlowState = query({
+  args: {
+    playerId: v.string(),
+    inviteId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const context = await getInviteContext(ctx, args.inviteId);
+
+    if (!context) {
+      return {
+        invalidInvite: true,
+        drop: null,
+        player: null,
+        attemptState: null,
+        invite: null,
+        challenger: null,
+      };
+    }
 
     return {
-      drop: toPublicDrop(drop),
-      player: player ? { playerId: player.playerId } : null,
-      attemptState: getAttemptPayload(attempt, answers),
+      invalidInvite: false,
+      ...(await getFlowPayload({
+        ctx,
+        playerId: args.playerId,
+        dropId: context.drop.id,
+        invite: context.invite,
+        challenger: context.challenger,
+      })),
     };
   },
 });
@@ -149,23 +330,24 @@ export const getFlowState = query({
 export const startAttempt = mutation({
   args: {
     playerId: v.string(),
+    inviteId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const drop = getLiveDrop();
+    const inviteContext = args.inviteId
+      ? await getInviteContext(ctx, args.inviteId)
+      : null;
+
+    if (args.inviteId && !inviteContext) {
+      throw new Error("This challenge link is not available.");
+    }
+
+    const drop = inviteContext?.drop ?? getLiveDrop();
 
     if (!drop) {
       throw new Error("No live Drop is available.");
     }
 
-    const now = Date.now();
-    const existingPlayer = await getPlayerByLocalId(ctx, args.playerId);
-
-    if (!existingPlayer) {
-      await ctx.db.insert("players", {
-        playerId: args.playerId,
-        createdAt: now,
-      });
-    }
+    await ensurePlayer(ctx, args.playerId);
 
     const existingAttempt = await getAttempt(ctx, args.playerId, drop.id);
 
@@ -182,7 +364,8 @@ export const startAttempt = mutation({
       dropId: drop.id,
       currentQuestionIndex: 0,
       stage: "answering",
-      startedAt: now,
+      sourceInviteId: inviteContext?.invite._id,
+      startedAt: Date.now(),
     });
 
     const attempt = await ctx.db.get(attemptId);
@@ -201,14 +384,15 @@ export const startAttempt = mutation({
 export const submitAnswer = mutation({
   args: {
     playerId: v.string(),
+    dropId: v.string(),
     questionId: v.string(),
     selectedOptionId: v.string(),
   },
   handler: async (ctx, args) => {
-    const drop = getLiveDrop();
+    const drop = getDropById(args.dropId);
 
-    if (!drop) {
-      throw new Error("No live Drop is available.");
+    if (!drop || !isDropLive(drop)) {
+      throw new Error("This Drop is not available.");
     }
 
     const attempt = await getAttempt(ctx, args.playerId, drop.id);
@@ -285,12 +469,13 @@ export const submitAnswer = mutation({
 export const continueAfterReveal = mutation({
   args: {
     playerId: v.string(),
+    dropId: v.string(),
   },
   handler: async (ctx, args) => {
-    const drop = getLiveDrop();
+    const drop = getDropById(args.dropId);
 
-    if (!drop) {
-      throw new Error("No live Drop is available.");
+    if (!drop || !isDropLive(drop)) {
+      throw new Error("This Drop is not available.");
     }
 
     const attempt = await getAttempt(ctx, args.playerId, drop.id);
@@ -332,6 +517,86 @@ export const continueAfterReveal = mutation({
     return {
       drop: toPublicDrop(drop),
       attemptState: getAttemptPayload(updatedAttempt, answers),
+    };
+  },
+});
+
+export const setDisplayName = mutation({
+  args: {
+    playerId: v.string(),
+    displayName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const trimmedName = args.displayName.trim();
+
+    if (trimmedName.length < 1 || trimmedName.length > 32) {
+      throw new Error("Enter a first name between 1 and 32 characters.");
+    }
+
+    const player = await ensurePlayer(ctx, args.playerId);
+
+    await ctx.db.patch(player._id, {
+      displayName: trimmedName,
+      updatedAt: Date.now(),
+    });
+
+    return {
+      player: {
+        playerId: player.playerId,
+        displayName: trimmedName,
+      },
+    };
+  },
+});
+
+export const getOrCreateInvite = mutation({
+  args: {
+    playerId: v.string(),
+    dropId: v.string(),
+    origin: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const drop = getDropById(args.dropId);
+
+    if (!drop || !isDropLive(drop)) {
+      throw new Error("This Drop is not available.");
+    }
+
+    const player = await getPlayerByLocalId(ctx, args.playerId);
+
+    if (!player?.displayName) {
+      throw new Error("Add a display name before creating an Invite.");
+    }
+
+    const attempt = await getAttempt(ctx, args.playerId, drop.id);
+
+    if (!attempt || attempt.stage !== "result") {
+      throw new Error("Complete this Drop before creating an Invite.");
+    }
+
+    const answers = await getAnswers(ctx, attempt._id);
+    const existingInvite = await getReusableInvite(ctx, player.playerId, drop.id);
+    const inviteId =
+      existingInvite?._id ??
+      (await ctx.db.insert("invites", {
+        inviterPlayerId: player.playerId,
+        dropId: drop.id,
+        createdAt: Date.now(),
+      }));
+    const inviteUrl = `${args.origin.replace(/\/$/, "")}/i/${inviteId}`;
+    const score = getScore(answers);
+
+    return {
+      invite: {
+        id: inviteId,
+        url: inviteUrl,
+        message: makeShareText({
+          score,
+          total: drop.questions.length,
+          topicTitle: drop.topic.title,
+          inviteUrl,
+        }),
+      },
     };
   },
 });
