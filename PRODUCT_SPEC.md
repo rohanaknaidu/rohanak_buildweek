@@ -506,6 +506,14 @@ Before authentication, the canonical invariant is:
 
 has one canonical Attempt.
 
+Anonymous current progress is only an Attempt where:
+
+`playerId + dropId + no profileId`
+
+Once an Attempt has been claimed into a Profile, its historical `playerId` remains provenance only.
+
+That `playerId` must not grant anonymous access to the claimed Attempt.
+
 After authentication, the canonical invariant is:
 
 `profileId + dropId`
@@ -538,6 +546,10 @@ Do not:
 The anonymous Attempt may remain as provenance / history if needed, but it must not become a second canonical Profile score.
 
 The originating `playerId` should remain preserved for provenance.
+
+Do not remove the originating `playerId` from claimed Attempts merely to enforce ownership.
+
+Ownership-aware queries and mutations must enforce the boundary.
 
 ## Answer
 
@@ -1546,6 +1558,22 @@ Once authenticated, Profile-owned progress is canonical in all Result, Home, Jou
 
 An unclaimed browser-local Attempt for the same Drop must not continue appearing as the user's current score merely because it belongs to the current browser.
 
+When no Profile is authenticated, anonymous canonical progress queries must exclude claimed Attempts.
+
+Conceptually, anonymous lookup is:
+
+`playerId + dropId + no profileId`
+
+Authenticated lookup is:
+
+`profileId + dropId`
+
+A browser-local `playerId` is client-held and may be stale, restored, or intentionally supplied again.
+
+Therefore rotating the browser `playerId` is not the authorization mechanism.
+
+The backend ownership rule is the authorization boundary.
+
 Do not surface two canonical scores.
 
 The originating anonymous Attempt may remain stored for provenance / history according to the data model, but it is not the authenticated Profile's canonical progress.
@@ -1567,6 +1595,47 @@ Required acceptance test:
 7. The previously completed Drop appears completed with the original score.
 
 If this does not work, the milestone has not solved durable Journey continuity.
+
+## Sign-Out Boundary
+
+### LOCKED
+
+Sign-out must make the account boundary visible and real.
+
+Successful sign-out:
+
+1. Convex Auth `signOut()` succeeds.
+2. Authenticated / Profile UI state is cleared.
+3. Pending auth, share, and continuation state is cleared.
+4. A new browser-local anonymous `playerId` is generated.
+5. The new `playerId` is persisted for future anonymous play.
+6. The app renders anonymous Home.
+
+If Convex Auth sign-out fails, do not rotate the browser identity and do not visually present the user as signed out.
+
+Do not delete Profile, Attempt, Answer, Invite, or provenance data from Convex during sign-out.
+
+Previously claimed Profile-owned progress must not remain visible anonymously after sign-out merely because the browser once supplied the originating `playerId`.
+
+Signing back in with the same Google Profile must restore the Profile-owned canonical progress.
+
+Shared-device acceptance test:
+
+`Rohanak signed in`
+
+-> Profile score visible
+
+-> `Sign out`
+
+-> anonymous state, no Rohanak / Profile score
+
+-> fresh anonymous `playerId`
+
+-> `Continue with Google`
+
+-> same Profile restored
+
+-> original Profile score visible.
 
 ---
 
@@ -1999,6 +2068,33 @@ For an anonymous Player, the minimal Space Home should also quietly communicate:
 * `Save my journey`.
 
 For an authenticated Profile, do not show the saved-on-this-device warning.
+
+Authenticated Home, Space Home, and Result should show a quiet account affordance using `Profile.displayName`.
+
+Example semantic intent:
+
+`Rohanak Naidu v`
+
+The account affordance should not compete with the Question, Result, or Challenge hierarchy.
+
+Tapping it opens a minimal account sheet containing:
+
+* Profile display name;
+* Profile email, visible only to the signed-in user;
+* `Your Space journey is saved to your profile.`;
+* `Sign out`.
+
+Do not show Profile email in Invite, share, social, or public comparison surfaces.
+
+Do not add account settings, profile pages, name editing, account deletion, avatars, or Journey 3 navigation in M2.2.
+
+After the first successful authentication that meaningfully claims / saves progress, show a small transient confirmation:
+
+`Journey saved`
+
+`Your progress is now connected to your Google account.`
+
+Do not show this confirmation on every later returning sign-in unless a new claim or save action actually occurred.
 
 This is intentionally not the full Journey 3 experience.
 
@@ -2484,7 +2580,52 @@ Do not implement in M2.1:
 
 ---
 
-# 30. Next Section To Define
+# 30. M2.2 - Account Boundary + Account State
+
+## LOCKED
+
+M2.2 is a focused correction after M2.1.
+
+It exists to ensure:
+
+* Profile-owned progress cannot leak through historical browser `playerId` values;
+* sign-out creates a real anonymous boundary;
+* authenticated state is visible and reversible;
+* M1, M2, and M2.1 behavior remains intact.
+
+## In Scope
+
+M2.2 includes:
+
+* ownership-aware anonymous Attempt lookup;
+* prevention of anonymous reads or mutations against claimed Profile-owned Attempts;
+* sign-out through Convex Auth;
+* new browser-local `playerId` generation after successful sign-out;
+* clearing transient auth / share / Profile UI state on sign-out;
+* authenticated account chip on Home, Space Home, and Result;
+* minimal account sheet;
+* one-time `Journey saved` confirmation after meaningful auth + claim;
+* shared-device sign-out / sign-in acceptance testing.
+
+## Out Of Scope
+
+Do not implement in M2.2:
+
+* Profile editing;
+* account settings;
+* delete-account behavior;
+* avatars;
+* email visibility in social surfaces;
+* Knowledge Map;
+* Journey 3;
+* returning-player content cadence beyond the existing minimal Space Home;
+* new authentication providers;
+* email notifications;
+* analytics events.
+
+---
+
+# 31. Next Section To Define
 
 ## TODO - Concrete V1 User Journeys
 

@@ -23,9 +23,13 @@ type PendingAuthAction = "challenge" | "save";
 const playerIdStorageKey = "did-you-know.playerId";
 const pendingAuthActionStorageKey = "did-you-know.pendingAuthAction";
 const authActionSearchParam = "dykAuthAction";
+const playerIdListeners = new Set<() => void>();
 
-function subscribeToPlayerId() {
-  return () => {};
+function subscribeToPlayerId(listener: () => void) {
+  playerIdListeners.add(listener);
+  return () => {
+    playerIdListeners.delete(listener);
+  };
 }
 
 function getServerPlayerIdSnapshot(): PlayerIdState {
@@ -39,8 +43,21 @@ function getOrCreatePlayerId() {
     return existing;
   }
 
-  const playerId = window.crypto.randomUUID();
+  const playerId = makeNewPlayerId();
   window.localStorage.setItem(playerIdStorageKey, playerId);
+  return playerId;
+}
+
+function makeNewPlayerId() {
+  return window.crypto.randomUUID();
+}
+
+function rotateBrowserPlayerId() {
+  const playerId = makeNewPlayerId();
+  window.localStorage.setItem(playerIdStorageKey, playerId);
+  for (const listener of playerIdListeners) {
+    listener();
+  }
   return playerId;
 }
 
@@ -95,18 +112,27 @@ export function DirectDropFlow({ inviteId }: { inviteId?: string }) {
     return <ShellLoading />;
   }
 
-  return <DropFlowInner inviteId={inviteId} playerId={playerId} />;
+  return (
+    <DropFlowInner
+      inviteId={inviteId}
+      key={playerId}
+      onPlayerIdRotated={rotateBrowserPlayerId}
+      playerId={playerId}
+    />
+  );
 }
 
 function DropFlowInner({
   inviteId,
+  onPlayerIdRotated,
   playerId,
 }: {
   inviteId?: string;
+  onPlayerIdRotated: () => void;
   playerId: string;
 }) {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
-  const { signIn } = useAuthActions();
+  const { signIn, signOut } = useAuthActions();
   const directFlowState = useQuery(
     api.directFlow.getFlowState,
     inviteId ? "skip" : { playerId },
@@ -133,10 +159,10 @@ function DropFlowInner({
   const [spaceView, setSpaceView] = useState<SpaceView>("space");
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [shareDisplayName, setShareDisplayName] = useState<string | null>(null);
-  const [claimedProfile, setClaimedProfile] = useState<{
-    displayName: string;
-  } | null>(null);
+  const [claimedProfile, setClaimedProfile] = useState<Profile | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [journeySavedNotice, setJourneySavedNotice] = useState(false);
   const completedPendingAuthAction = useRef<string | null>(null);
 
   const ensureInvite = useCallback(async () => {
@@ -164,6 +190,9 @@ function DropFlowInner({
             throw new Error("Profile was not available after sign-in.");
           }
           setClaimedProfile(claimResult.profile);
+          if (claimResult.claimedCount > 0) {
+            setJourneySavedNotice(true);
+          }
           clearAuthReturnIntent();
 
           if (action === "challenge") {
@@ -183,6 +212,27 @@ function DropFlowInner({
     },
     [ensureInvite, ensureProfileAndClaim, playerId],
   );
+
+  const handleSignOut = () => {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await signOut();
+        clearAuthReturnIntent();
+        setShareState("closed");
+        setShareMessage(null);
+        setShareDisplayName(null);
+        setCopyStatus(null);
+        setClaimedProfile(null);
+        setJourneySavedNotice(false);
+        setIsAccountOpen(false);
+        setSpaceView("space");
+        onPlayerIdRotated();
+      } catch {
+        setError("Could not sign out. Please try again.");
+      }
+    });
+  };
 
   useEffect(() => {
     if (authLoading || !isAuthenticated || !flowState) {
@@ -346,9 +396,20 @@ function DropFlowInner({
           drop={flowState.drop}
           error={error}
           onGoogleSignIn={() => openAuthSheet("save")}
+          onOpenAccount={profile ? () => setIsAccountOpen(true) : undefined}
           onPlay={handleStart}
+          profile={profile}
           showGoogleSignIn={profile === null}
         />
+        {isAccountOpen && profile ? (
+          <AccountSheet
+            disabled={isPending}
+            email={profile.email}
+            onClose={() => setIsAccountOpen(false)}
+            onSignOut={handleSignOut}
+            profileName={profile.displayName}
+          />
+        ) : null}
         {shareState === "auth" ? (
           <AuthSheet
             disabled={isPending}
@@ -399,11 +460,23 @@ function DropFlowInner({
             disabled={isPending}
             drop={flowState.drop}
             isAuthenticated={profile !== null}
+            journeySavedNotice={journeySavedNotice}
+            onOpenAccount={profile ? () => setIsAccountOpen(true) : undefined}
             onSaveJourney={saveJourney}
             onViewResult={() => setSpaceView("result")}
+            profile={profile}
             score={attemptState.result?.score ?? 0}
             total={flowState.drop.questionCount}
           />
+          {isAccountOpen && profile ? (
+            <AccountSheet
+              disabled={isPending}
+              email={profile.email}
+              onClose={() => setIsAccountOpen(false)}
+              onSignOut={handleSignOut}
+              profileName={profile.displayName}
+            />
+          ) : null}
           {overlays}
         </>
       );
@@ -417,12 +490,24 @@ function DropFlowInner({
           drop={flowState.drop}
           error={error}
           isAuthenticated={profile !== null}
+          journeySavedNotice={journeySavedNotice}
           onBackToSpace={() => setSpaceView("space")}
           onChallenge={openShareChoices}
+          onOpenAccount={profile ? () => setIsAccountOpen(true) : undefined}
           onSaveJourney={saveJourney}
+          profile={profile}
           score={attemptState.result?.score ?? 0}
           total={flowState.drop.questionCount}
         />
+        {isAccountOpen && profile ? (
+          <AccountSheet
+            disabled={isPending}
+            email={profile.email}
+            onClose={() => setIsAccountOpen(false)}
+            onSignOut={handleSignOut}
+            profileName={profile.displayName}
+          />
+        ) : null}
         {overlays}
       </>
     );
@@ -493,19 +578,32 @@ function HomeScreen({
   disabled,
   error,
   onGoogleSignIn,
+  onOpenAccount,
   onPlay,
+  profile,
   showGoogleSignIn,
 }: {
   drop: PublicDrop;
   disabled: boolean;
   error: string | null;
   onGoogleSignIn: () => void;
+  onOpenAccount?: () => void;
   onPlay: () => void;
+  profile: Profile | null;
   showGoogleSignIn: boolean;
 }) {
   return (
     <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
+        {profile && onOpenAccount ? (
+          <div className="mb-8 flex justify-end">
+            <AccountChip
+              disabled={disabled}
+              onClick={onOpenAccount}
+              profileName={profile.displayName}
+            />
+          </div>
+        ) : null}
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
           Did You Know?
         </p>
@@ -604,21 +702,36 @@ function SpaceHomeScreen({
   score,
   total,
   isAuthenticated,
+  journeySavedNotice,
   disabled,
+  onOpenAccount,
   onViewResult,
   onSaveJourney,
+  profile,
 }: {
   drop: PublicDrop;
   score: number;
   total: number;
   isAuthenticated: boolean;
+  journeySavedNotice: boolean;
   disabled: boolean;
+  onOpenAccount?: () => void;
   onViewResult: () => void;
   onSaveJourney: () => void;
+  profile: Profile | null;
 }) {
   return (
     <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
+        {profile && onOpenAccount ? (
+          <div className="mb-8 flex justify-end">
+            <AccountChip
+              disabled={disabled}
+              onClick={onOpenAccount}
+              profileName={profile.displayName}
+            />
+          </div>
+        ) : null}
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
           Did You Know?
         </p>
@@ -642,6 +755,14 @@ function SpaceHomeScreen({
           View result
         </button>
         <p className="mt-5 text-base text-[#6d6255]">More Space coming soon.</p>
+        {journeySavedNotice ? (
+          <div className="mt-6 rounded-lg border border-[#b9d6c1] bg-[#eef8f1] p-4">
+            <p className="font-semibold text-[#173d29]">Journey saved</p>
+            <p className="mt-1 text-sm leading-6 text-[#356245]">
+              Your progress is now connected to your Google account.
+            </p>
+          </div>
+        ) : null}
         {!isAuthenticated ? (
           <div className="mt-6 border-t border-[#d8cdbd] pt-5">
             <p className="text-sm font-medium text-[#6d6255]">
@@ -896,9 +1017,12 @@ function ResultScreen({
   disabled,
   error,
   isAuthenticated,
+  journeySavedNotice,
   onBackToSpace,
   onChallenge,
+  onOpenAccount,
   onSaveJourney,
+  profile,
 }: {
   challenger: Challenger | null;
   drop: PublicDrop;
@@ -907,9 +1031,12 @@ function ResultScreen({
   disabled: boolean;
   error: string | null;
   isAuthenticated: boolean;
+  journeySavedNotice: boolean;
   onBackToSpace: () => void;
   onChallenge: () => void;
+  onOpenAccount?: () => void;
   onSaveJourney: () => void;
+  profile: Profile | null;
 }) {
   const challengeCopy =
     score === total
@@ -920,6 +1047,15 @@ function ResultScreen({
   return (
     <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
+        {profile && onOpenAccount ? (
+          <div className="mb-8 flex justify-end">
+            <AccountChip
+              disabled={disabled}
+              onClick={onOpenAccount}
+              profileName={profile.displayName}
+            />
+          </div>
+        ) : null}
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
           Result
         </p>
@@ -977,6 +1113,14 @@ function ResultScreen({
               </button>
             </div>
           ) : null}
+          {journeySavedNotice ? (
+            <div className="mt-6 rounded-lg border border-[#b9d6c1] bg-[#eef8f1] p-4">
+              <p className="font-semibold text-[#173d29]">Journey saved</p>
+              <p className="mt-1 text-sm leading-6 text-[#356245]">
+                Your progress is now connected to your Google account.
+              </p>
+            </div>
+          ) : null}
           {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
         </div>
       </section>
@@ -1014,6 +1158,66 @@ function AuthSheet({
         {disabled ? "Opening Google..." : "Continue with Google"}
       </button>
       {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
+    </Sheet>
+  );
+}
+
+function AccountChip({
+  disabled,
+  onClick,
+  profileName,
+}: {
+  disabled: boolean;
+  onClick: () => void;
+  profileName: string;
+}) {
+  return (
+    <button
+      className="inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border border-[#d8cdbd] bg-white px-4 text-sm font-semibold text-[#221b14] shadow-sm hover:border-[#15262f] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      <span className="truncate">{profileName}</span>
+      <span aria-hidden="true" className="text-[#6d6255]">
+        v
+      </span>
+      <span className="sr-only">Open account menu</span>
+    </button>
+  );
+}
+
+function AccountSheet({
+  disabled,
+  email,
+  onClose,
+  onSignOut,
+  profileName,
+}: {
+  disabled: boolean;
+  email?: string;
+  onClose: () => void;
+  onSignOut: () => void;
+  profileName: string;
+}) {
+  return (
+    <Sheet onClose={onClose} title={profileName}>
+      {email ? (
+        <p className="break-words text-sm font-medium text-[#6d6255]">
+          {email}
+        </p>
+      ) : null}
+      <p className="mt-4 text-base leading-7 text-[#51483d]">
+        Your Space journey is saved to your profile.
+      </p>
+      <button
+        className="mt-5 min-h-12 w-full rounded-lg border border-[#b9ab98] bg-white px-5 text-base font-semibold text-[#221b14] shadow-sm transition hover:border-[#15262f] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={disabled}
+        onClick={onSignOut}
+        type="button"
+      >
+        {disabled ? "Signing out..." : "Sign out"}
+      </button>
     </Sheet>
   );
 }
@@ -1205,4 +1409,10 @@ type Challenger = {
     score: number;
     total: number;
   };
+};
+
+type Profile = {
+  id: string;
+  displayName: string;
+  email?: string;
 };

@@ -102,17 +102,19 @@ async function ensureProfile(ctx: MutationCtx) {
   return profile;
 }
 
-async function getPlayerAttempt(
+async function getAnonymousAttempt(
   ctx: QueryCtx | MutationCtx,
   playerId: string,
   dropId: string,
 ) {
-  return await ctx.db
+  const attempts = await ctx.db
     .query("attempts")
     .withIndex("by_playerId_dropId", (q) =>
       q.eq("playerId", playerId).eq("dropId", dropId),
     )
-    .unique();
+    .collect();
+
+  return attempts.find((attempt) => !attempt.profileId) ?? null;
 }
 
 async function getProfileAttempt(
@@ -146,7 +148,7 @@ async function getCanonicalAttempt({
     }
   }
 
-  return await getPlayerAttempt(ctx, playerId, dropId);
+  return await getAnonymousAttempt(ctx, playerId, dropId);
 }
 
 async function getAnswers(ctx: QueryCtx | MutationCtx, attemptId: Id<"attempts">) {
@@ -236,6 +238,7 @@ function getPublicProfile(profile: ProfileDoc | null) {
   return {
     id: profile._id,
     displayName: profile.displayName,
+    email: profile.email,
   };
 }
 
@@ -576,6 +579,10 @@ export const submitAnswer = mutation({
     }
 
     const profile = await getCurrentProfile(ctx);
+    if (profile) {
+      await claimAnonymousAttempts(ctx, args.playerId, profile);
+    }
+
     const attempt = await getCanonicalAttempt({
       ctx,
       playerId: args.playerId,
@@ -665,6 +672,10 @@ export const continueAfterReveal = mutation({
     }
 
     const profile = await getCurrentProfile(ctx);
+    if (profile) {
+      await claimAnonymousAttempts(ctx, args.playerId, profile);
+    }
+
     const attempt = await getCanonicalAttempt({
       ctx,
       playerId: args.playerId,
