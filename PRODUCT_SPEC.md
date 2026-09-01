@@ -402,7 +402,7 @@ An anonymous Player is still valid and may have valid Attempts, Answers, Results
 
 ### LOCKED
 
-V1 uses **Convex Auth** directly for durable authentication.
+V1 uses **Google-only authentication via Convex Auth** for durable authentication.
 
 Convex Auth establishes:
 
@@ -412,33 +412,56 @@ Authentication proves identity and maintains the durable session.
 
 Use:
 
-* email one-time code;
+* Google OAuth through Convex Auth;
 * no password;
 * no username;
-* no Google / GitHub / OAuth buttons;
-* no separate third-party identity provider.
+* no email OTP;
+* no magic links;
+* no password reset;
+* no Resend or transactional email provider for authentication;
+* no Clerk;
+* no Better Auth;
+* no additional OAuth providers.
 
 Convex Auth is the only V1 authentication provider.
 
-Email one-time-code delivery requires a transactional email sender/provider.
+Google is the external identity provider.
 
-That provider is mail-delivery infrastructure only.
+Convex Auth remains the app authentication and session system.
 
-It is not another identity provider or source of user truth.
+The stack is:
 
-The product / auth model is:
+`Next.js -> Convex Auth using Google OAuth -> Convex Profile / game data -> Vercel`
 
-* Convex Auth proves authenticated identity;
-* Convex product data owns Profile, Journey, Attempts, Answers, and Invites;
-* the email provider only delivers verification codes.
+Google proves identity.
 
-Do not lock a specific email provider into the product model unless implementation requires it.
+Convex Auth maintains the authenticated session.
 
-Implementation should use the smallest reliable email delivery option supported by Convex Auth.
+Convex product data owns Profile, Journey, Attempts, Answers, Invites, scores, and claiming.
 
 Do not make M2.1 depend on authenticated Next.js middleware, authenticated Server Components, SSR auth, or API-route auth.
 
 Use client-side authentication for this milestone.
+
+Before substantial implementation, verify the official Convex Auth Google OAuth setup for the existing Next.js App Router project.
+
+If Google OAuth setup presents a concrete blocker, stop and report it before proposing another auth model.
+
+The Google OAuth callback should use the Convex HTTP Actions URL:
+
+`https://<convex-deployment>.convex.site/api/auth/callback/google`
+
+The exact development and production callback URLs are deployment configuration, not durable product semantics.
+
+Before configuring Google Cloud, retrieve the exact dev and prod Convex HTTP Actions URLs from the actual deployments or dashboard rather than guessing them.
+
+`@convex-dev/auth` is required for implementation.
+
+Do not lock speculative npm dependencies such as `jose` or an arbitrary `@auth/core` version into the product spec.
+
+During implementation, determine exact compatible peer / package requirements from the installed current Convex Auth version and official setup instructions.
+
+Do not independently upgrade or pin auth dependencies without compatibility evidence.
 
 ## Profile
 
@@ -449,11 +472,25 @@ A **Profile** is the Did You Know product identity associated with an authentica
 At minimum, a Profile owns:
 
 * authenticated user identity reference;
-* verified email reference as appropriate;
+* email from Google identity;
 * `displayName`;
 * creation / update timestamps.
 
 `displayName` belongs to the Did You Know product model because it is the identity friends see in Challenges.
+
+On first successful Google authentication, initialize `Profile.displayName` from Google name / profile data when available.
+
+Do not permanently derive `displayName` from Google on every request.
+
+`Profile.displayName` is product-owned so it can become editable later.
+
+Friends see the Profile display name.
+
+Friends never see the Profile email.
+
+The same Google / Convex Auth identity must always resolve to the same Profile.
+
+Do not create duplicate Profiles for repeated sign-ins with the same authenticated user.
 
 Do not store Journey, Attempt, Answer, Invite, or progress state inside auth-user metadata merely because auth provides a user record.
 
@@ -1323,7 +1360,7 @@ Anonymous Result / Space Home:
 
 -> Profile / auth flow
 
--> successful email-code verification
+-> successful Google authentication
 
 -> claim eligible anonymous progress
 
@@ -1337,7 +1374,7 @@ Anonymous Result:
 
 -> same Profile / auth flow
 
--> successful email-code verification
+-> successful Google authentication
 
 -> claim eligible anonymous progress
 
@@ -1357,27 +1394,19 @@ Conceptual flow:
 
 `Create your profile`
 
-Name
+`Continue with Google`
 
-Email
-
-`Continue`
-
-Then:
-
-`Check your email`
-
-Enter the one-time code.
-
-`Verify`
-
-After successful verification, complete the Profile / claim operation and return to the original intended action.
+After successful Google authentication, complete the Profile / claim operation and return to the original intended action.
 
 Do not ask for passwords.
 
+Do not ask for email OTP.
+
+Do not ask for a typed display name in M2.1.
+
 Do not create separate confusing product flows for "sign up" and "sign in."
 
-The user supplies their email and verifies it.
+The user authenticates with Google.
 
 After authentication:
 
@@ -1387,7 +1416,7 @@ After authentication:
 
 The user should not need to understand whether they just "signed up," "signed in," or "claimed an anonymous Player."
 
-Do not call email capture "signup" unless authentication / verification actually succeeded.
+Do not call a user signed in unless Google authentication actually succeeded.
 
 ## Fresh Direct Player
 
@@ -1530,10 +1559,10 @@ V1 durable identity is only successful if signed-in return works across browsers
 Required acceptance test:
 
 1. Browser A plays a Drop anonymously.
-2. User creates Profile and verifies email.
+2. User continues with Google.
 3. Existing score is claimed.
 4. Browser B starts without Browser A's local `playerId`.
-5. User authenticates with the same email.
+5. User continues with the same Google account.
 6. Did You Know restores the same Profile.
 7. The previously completed Drop appears completed with the original score.
 
@@ -1622,7 +1651,7 @@ For an anonymous Player without an authenticated Profile:
 
 -> Profile / auth flow
 
--> successful email-code verification
+-> successful Google authentication
 
 -> claim eligible anonymous progress
 
@@ -2000,7 +2029,7 @@ Current engineering stack:
 | Deployment | Vercel |
 | Package manager | npm |
 | Source control | Git + GitHub |
-| Authentication | Convex Auth, client-side email one-time code |
+| Authentication | Convex Auth, client-side Google-only OAuth |
 | Content | Source-controlled typed data |
 | Runtime state | Convex |
 | Mobile target | Design around ~375px first |
@@ -2013,7 +2042,7 @@ M2.1 introduces durable authentication.
 
 Use Convex Auth directly for V1.
 
-Do not introduce Clerk, Better Auth, or another identity provider unless Convex Auth presents a concrete blocker for the required email one-time-code flow and the blocker is explicitly reviewed.
+Do not introduce Clerk, Better Auth, or another auth platform unless Convex Auth Google OAuth presents a concrete blocker and the blocker is explicitly reviewed.
 
 ---
 
@@ -2411,8 +2440,7 @@ M2.1 should not become Journey 3.
 
 M2.1 includes:
 
-* Convex Auth client-side email one-time-code authentication;
-* transactional email delivery setup for those one-time codes;
+* Convex Auth client-side Google-only OAuth authentication;
 * Profile creation / loading after successful authentication;
 * claim of eligible anonymous Attempts into the authenticated Profile;
 * server-authorized Profile ownership and claiming;
@@ -2437,10 +2465,15 @@ Do not implement in M2.1:
 * email notifications;
 * lifecycle email campaigns;
 * account settings;
-* passwords;
+* email OTP;
+* magic links;
+* password creation;
+* password reset;
 * usernames;
-* OAuth;
-* third-party identity providers;
+* additional OAuth providers;
+* Clerk;
+* Better Auth;
+* Resend or other transactional email providers;
 * authenticated Next.js middleware;
 * authenticated Server Components;
 * SSR auth;
