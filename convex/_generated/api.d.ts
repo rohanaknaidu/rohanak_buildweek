@@ -8,8 +8,10 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
 import type * as directFlow from "../directFlow.js";
 import type * as health from "../health.js";
+import type * as http from "../http.js";
 
 import type {
   ApiFromModules,
@@ -18,8 +20,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
   directFlow: typeof directFlow;
   health: typeof health;
+  http: typeof http;
 }>;
 
 /**

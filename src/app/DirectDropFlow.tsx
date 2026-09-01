@@ -1,15 +1,28 @@
 "use client";
 
+import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+} from "react";
 import { api } from "../../convex/_generated/api";
 
 type PlayerIdState = "loading" | string;
-type ShareState = "closed" | "name" | "choices";
+type ShareState = "closed" | "auth" | "choices";
+type SpaceView = "space" | "result";
+type PendingAuthAction = "challenge" | "save";
 
 const playerIdStorageKey = "did-you-know.playerId";
+const pendingAuthActionStorageKey = "did-you-know.pendingAuthAction";
+const authActionSearchParam = "dykAuthAction";
 
 function subscribeToPlayerId() {
   return () => {};
@@ -39,6 +52,38 @@ function getClientPlayerIdSnapshot(): PlayerIdState {
   return getOrCreatePlayerId();
 }
 
+function getPendingAuthAction() {
+  const searchValue = new URLSearchParams(window.location.search).get(
+    authActionSearchParam,
+  );
+  const value =
+    searchValue ?? window.localStorage.getItem(pendingAuthActionStorageKey);
+  return value === "challenge" || value === "save" ? value : null;
+}
+
+function makeAuthReturnPath({
+  action,
+  inviteId,
+}: {
+  action: PendingAuthAction;
+  inviteId?: string;
+}) {
+  const path = inviteId ? `/i/${inviteId}` : "/";
+  return `${path}?${authActionSearchParam}=${action}`;
+}
+
+function clearAuthReturnIntent() {
+  window.localStorage.removeItem(pendingAuthActionStorageKey);
+
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has(authActionSearchParam)) {
+    return;
+  }
+
+  url.searchParams.delete(authActionSearchParam);
+  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+}
+
 export function DirectDropFlow({ inviteId }: { inviteId?: string }) {
   const playerId = useSyncExternalStore(
     subscribeToPlayerId,
@@ -60,6 +105,8 @@ function DropFlowInner({
   inviteId?: string;
   playerId: string;
 }) {
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const { signIn } = useAuthActions();
   const directFlowState = useQuery(
     api.directFlow.getFlowState,
     inviteId ? "skip" : { playerId },
@@ -72,7 +119,7 @@ function DropFlowInner({
   const startAttempt = useMutation(api.directFlow.startAttempt);
   const submitAnswer = useMutation(api.directFlow.submitAnswer);
   const continueAfterReveal = useMutation(api.directFlow.continueAfterReveal);
-  const setDisplayName = useMutation(api.directFlow.setDisplayName);
+  const ensureProfileAndClaim = useMutation(api.directFlow.ensureProfileAndClaim);
   const getOrCreateInvite = useMutation(api.directFlow.getOrCreateInvite);
   const [isPending, startTransition] = useTransition();
   const [committedAnswer, setCommittedAnswer] = useState<{
@@ -81,10 +128,88 @@ function DropFlowInner({
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shareState, setShareState] = useState<ShareState>("closed");
+  const [authPurpose, setAuthPurpose] =
+    useState<PendingAuthAction>("challenge");
+  const [spaceView, setSpaceView] = useState<SpaceView>("space");
   const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const [shareDisplayName, setShareDisplayName] = useState<string | null>(null);
+  const [claimedProfile, setClaimedProfile] = useState<{
+    displayName: string;
+  } | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const completedPendingAuthAction = useRef<string | null>(null);
 
-  if (flowState === undefined) {
+  const ensureInvite = useCallback(async () => {
+    if (!flowState || !("drop" in flowState) || !flowState.drop) {
+      throw new Error("Could not find this Drop.");
+    }
+
+    const origin = window.location.origin;
+    const result = await getOrCreateInvite({
+      playerId,
+      dropId: flowState.drop.id,
+      origin,
+    });
+    setShareMessage(result.invite.message);
+    return result.invite;
+  }, [flowState, getOrCreateInvite, playerId]);
+
+  const completeAuthenticatedAction = useCallback(
+    (action: PendingAuthAction) => {
+      setError(null);
+      startTransition(async () => {
+        try {
+          const claimResult = await ensureProfileAndClaim({ playerId });
+          if (!claimResult.profile) {
+            throw new Error("Profile was not available after sign-in.");
+          }
+          setClaimedProfile(claimResult.profile);
+          clearAuthReturnIntent();
+
+          if (action === "challenge") {
+            setShareDisplayName(claimResult.profile.displayName);
+            await ensureInvite();
+            setShareState("choices");
+            setSpaceView("result");
+          } else {
+            setShareState("closed");
+            setSpaceView("space");
+          }
+        } catch {
+          setError("Could not finish sign-in. Please try again.");
+          setShareState("closed");
+        }
+      });
+    },
+    [ensureInvite, ensureProfileAndClaim, playerId],
+  );
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || !flowState) {
+      return;
+    }
+
+    const pendingAction = getPendingAuthAction();
+    if (!pendingAction) {
+      return;
+    }
+
+    const completionKey = `${pendingAction}:${playerId}`;
+    if (completedPendingAuthAction.current === completionKey) {
+      return;
+    }
+
+    completedPendingAuthAction.current = completionKey;
+    completeAuthenticatedAction(pendingAction);
+  }, [
+    authLoading,
+    completeAuthenticatedAction,
+    flowState,
+    isAuthenticated,
+    playerId,
+  ]);
+
+  if (flowState === undefined || authLoading) {
     return <ShellLoading />;
   }
 
@@ -108,6 +233,8 @@ function DropFlowInner({
   }
 
   const challenger = flowState.challenger ?? null;
+  const profile = flowState.profile ?? claimedProfile;
+  const attemptState = flowState.attemptState;
 
   const handleStart = () => {
     setError(null);
@@ -120,15 +247,26 @@ function DropFlowInner({
     });
   };
 
-  const ensureInvite = async () => {
-    const origin = window.location.origin;
-    const result = await getOrCreateInvite({
-      playerId,
-      dropId: flowState.drop.id,
-      origin,
+  const beginGoogleAuth = (action: PendingAuthAction) => {
+    setError(null);
+    window.localStorage.setItem(pendingAuthActionStorageKey, action);
+    startTransition(async () => {
+      try {
+        await signIn("google", {
+          redirectTo: makeAuthReturnPath({ action, inviteId }),
+        });
+      } catch {
+        setError("Could not start Google sign-in. Please try again.");
+      }
     });
-    setShareMessage(result.invite.message);
-    return result.invite;
+  };
+
+  const openAuthSheet = (action: PendingAuthAction) => {
+    setAuthPurpose(action);
+    setShareState("auth");
+    setCopyStatus(null);
+    setShareMessage(null);
+    setError(null);
   };
 
   const openShareChoices = () => {
@@ -136,14 +274,15 @@ function DropFlowInner({
     setCopyStatus(null);
     setShareMessage(null);
 
-    if (!flowState.player?.displayName) {
-      setShareState("name");
+    if (!profile) {
+      openAuthSheet("challenge");
       return;
     }
 
     startTransition(async () => {
       try {
         await ensureInvite();
+        setShareDisplayName(profile.displayName);
         setShareState("choices");
       } catch {
         setError("Could not prepare your invite. Please try again.");
@@ -151,22 +290,13 @@ function DropFlowInner({
     });
   };
 
-  const saveNameAndContinue = (displayName: string) => {
-    setError(null);
-    setCopyStatus(null);
-    startTransition(async () => {
-      try {
-        await setDisplayName({ playerId, displayName });
-        await ensureInvite();
-        setShareState("choices");
-      } catch (caughtError) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Could not save your name. Please try again.",
-        );
-      }
-    });
+  const saveJourney = () => {
+    if (!profile) {
+      openAuthSheet("save");
+      return;
+    }
+
+    completeAuthenticatedAction("save");
   };
 
   const copyInvite = () => {
@@ -196,7 +326,7 @@ function DropFlowInner({
     )}`;
   };
 
-  if (!flowState.attemptState) {
+  if (!attemptState) {
     if (challenger) {
       return (
         <InviteLandingScreen
@@ -210,16 +340,75 @@ function DropFlowInner({
     }
 
     return (
-      <HomeScreen
-        disabled={isPending}
-        drop={flowState.drop}
-        error={error}
-        onPlay={handleStart}
-      />
+      <>
+        <HomeScreen
+          disabled={isPending}
+          drop={flowState.drop}
+          error={error}
+          onGoogleSignIn={() => openAuthSheet("save")}
+          onPlay={handleStart}
+          showGoogleSignIn={profile === null}
+        />
+        {shareState === "auth" ? (
+          <AuthSheet
+            disabled={isPending}
+            error={error}
+            onClose={() => setShareState("closed")}
+            onContinue={() => beginGoogleAuth(authPurpose)}
+            purpose={authPurpose}
+          />
+        ) : null}
+      </>
     );
   }
 
-  if (flowState.attemptState.attempt.stage === "result") {
+  if (attemptState.attempt.stage === "result") {
+    const overlays = (
+      <>
+        {shareState === "auth" ? (
+          <AuthSheet
+            disabled={isPending}
+            error={error}
+            onClose={() => setShareState("closed")}
+            onContinue={() => beginGoogleAuth(authPurpose)}
+            purpose={authPurpose}
+          />
+        ) : null}
+        {shareState === "choices" ? (
+          <ShareChoiceSheet
+            copyStatus={copyStatus}
+            disabled={isPending}
+            displayName={
+              shareDisplayName ?? profile?.displayName ?? "A friend"
+            }
+            onClose={() => setShareState("closed")}
+            onCopy={copyInvite}
+            onWhatsApp={openWhatsApp}
+            score={attemptState.result?.score ?? 0}
+            topicTitle={flowState.drop.topic.title}
+            total={flowState.drop.questionCount}
+          />
+        ) : null}
+      </>
+    );
+
+    if (!inviteId && spaceView === "space") {
+      return (
+        <>
+          <SpaceHomeScreen
+            disabled={isPending}
+            drop={flowState.drop}
+            isAuthenticated={profile !== null}
+            onSaveJourney={saveJourney}
+            onViewResult={() => setSpaceView("result")}
+            score={attemptState.result?.score ?? 0}
+            total={flowState.drop.questionCount}
+          />
+          {overlays}
+        </>
+      );
+    }
+
     return (
       <>
         <ResultScreen
@@ -227,35 +416,19 @@ function DropFlowInner({
           disabled={isPending}
           drop={flowState.drop}
           error={error}
+          isAuthenticated={profile !== null}
+          onBackToSpace={() => setSpaceView("space")}
           onChallenge={openShareChoices}
-          score={flowState.attemptState.result?.score ?? 0}
+          onSaveJourney={saveJourney}
+          score={attemptState.result?.score ?? 0}
           total={flowState.drop.questionCount}
         />
-        {shareState === "name" ? (
-          <NameCaptureSheet
-            disabled={isPending}
-            error={error}
-            onClose={() => setShareState("closed")}
-            onSubmit={saveNameAndContinue}
-          />
-        ) : null}
-        {shareState === "choices" ? (
-          <ShareChoiceSheet
-            copyStatus={copyStatus}
-            disabled={isPending}
-            onClose={() => setShareState("closed")}
-            onCopy={copyInvite}
-            onWhatsApp={openWhatsApp}
-            score={flowState.attemptState.result?.score ?? 0}
-            topicTitle={flowState.drop.topic.title}
-            total={flowState.drop.questionCount}
-          />
-        ) : null}
+        {overlays}
       </>
     );
   }
 
-  const question = flowState.attemptState.currentQuestion;
+  const question = attemptState.currentQuestion;
 
   if (!question) {
     return <ShellLoading />;
@@ -273,6 +446,9 @@ function DropFlowInner({
       error={error}
       onContinue={() => {
         setError(null);
+        if (attemptState.attempt.currentQuestionIndex === flowState.drop.questionCount - 1) {
+          setSpaceView("result");
+        }
         startTransition(async () => {
           try {
             await continueAfterReveal({
@@ -306,8 +482,8 @@ function DropFlowInner({
       }}
       question={question}
       questionCount={flowState.drop.questionCount}
-      questionIndex={flowState.attemptState.attempt.currentQuestionIndex}
-      reveal={flowState.attemptState.reveal}
+      questionIndex={attemptState.attempt.currentQuestionIndex}
+      reveal={attemptState.reveal}
     />
   );
 }
@@ -316,12 +492,16 @@ function HomeScreen({
   drop,
   disabled,
   error,
+  onGoogleSignIn,
   onPlay,
+  showGoogleSignIn,
 }: {
   drop: PublicDrop;
   disabled: boolean;
   error: string | null;
+  onGoogleSignIn: () => void;
   onPlay: () => void;
+  showGoogleSignIn: boolean;
 }) {
   return (
     <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
@@ -351,6 +531,16 @@ function HomeScreen({
         >
           {disabled ? "Starting..." : "Play"}
         </button>
+        {showGoogleSignIn ? (
+          <button
+            className="mt-4 min-h-12 w-full text-base font-semibold text-[#3b6b82] underline-offset-4 hover:underline disabled:opacity-60"
+            disabled={disabled}
+            onClick={onGoogleSignIn}
+            type="button"
+          >
+            Continue with Google
+          </button>
+        ) : null}
         {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
       </section>
     </main>
@@ -404,6 +594,69 @@ function InviteLandingScreen({
           {disabled ? "Starting..." : "Take the challenge"}
         </button>
         {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
+      </section>
+    </main>
+  );
+}
+
+function SpaceHomeScreen({
+  drop,
+  score,
+  total,
+  isAuthenticated,
+  disabled,
+  onViewResult,
+  onSaveJourney,
+}: {
+  drop: PublicDrop;
+  score: number;
+  total: number;
+  isAuthenticated: boolean;
+  disabled: boolean;
+  onViewResult: () => void;
+  onSaveJourney: () => void;
+}) {
+  return (
+    <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
+      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
+          Did You Know?
+        </p>
+        <p className="mt-5 text-sm font-semibold uppercase tracking-[0.18em] text-[#3b6b82]">
+          Space
+        </p>
+        <h1 className="mt-3 text-4xl font-semibold leading-tight tracking-normal">
+          You&apos;re caught up.
+        </h1>
+        <div className="mt-8 border-y border-[#d8cdbd] py-6">
+          <h2 className="text-2xl font-semibold leading-snug">{drop.title}</h2>
+          <p className="mt-3 text-base font-semibold text-[#6d6255]">
+            Completed - {score}/{total}
+          </p>
+        </div>
+        <button
+          className="mt-8 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9]"
+          onClick={onViewResult}
+          type="button"
+        >
+          View result
+        </button>
+        <p className="mt-5 text-base text-[#6d6255]">More Space coming soon.</p>
+        {!isAuthenticated ? (
+          <div className="mt-6 border-t border-[#d8cdbd] pt-5">
+            <p className="text-sm font-medium text-[#6d6255]">
+              Saved on this device
+            </p>
+            <button
+              className="mt-3 text-base font-semibold text-[#3b6b82] underline-offset-4 hover:underline disabled:opacity-60"
+              disabled={disabled}
+              onClick={onSaveJourney}
+              type="button"
+            >
+              Save my journey
+            </button>
+          </div>
+        ) : null}
       </section>
     </main>
   );
@@ -642,7 +895,10 @@ function ResultScreen({
   total,
   disabled,
   error,
+  isAuthenticated,
+  onBackToSpace,
   onChallenge,
+  onSaveJourney,
 }: {
   challenger: Challenger | null;
   drop: PublicDrop;
@@ -650,15 +906,16 @@ function ResultScreen({
   total: number;
   disabled: boolean;
   error: string | null;
+  isAuthenticated: boolean;
+  onBackToSpace: () => void;
   onChallenge: () => void;
+  onSaveJourney: () => void;
 }) {
   const challengeCopy =
     score === total
       ? `Think someone can match your ${score}/${total}?`
       : `Think someone can beat your ${score}/${total}?`;
-  const comparison = challenger
-    ? getComparisonCopy(score, challenger)
-    : null;
+  const comparison = challenger ? getComparisonCopy(score, challenger) : null;
 
   return (
     <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
@@ -698,12 +955,28 @@ function ResultScreen({
             {disabled ? "Preparing..." : "Challenge a friend"}
           </button>
           <button
-            className="mt-3 min-h-12 w-full text-base font-semibold text-[#3b6b82] disabled:opacity-70"
-            disabled
+            className="mt-3 min-h-12 w-full text-base font-semibold text-[#3b6b82] underline-offset-4 hover:underline disabled:opacity-70"
+            disabled={disabled}
+            onClick={onBackToSpace}
             type="button"
           >
-            Your Space Journey - coming later
+            Back to Space
           </button>
+          {!isAuthenticated ? (
+            <div className="mt-6 border-t border-[#d8cdbd] pt-5">
+              <p className="text-sm font-medium text-[#6d6255]">
+                Keep your Space progress across devices.
+              </p>
+              <button
+                className="mt-2 text-base font-semibold text-[#3b6b82] underline-offset-4 hover:underline disabled:opacity-60"
+                disabled={disabled}
+                onClick={onSaveJourney}
+                type="button"
+              >
+                Save my journey
+              </button>
+            </div>
+          ) : null}
           {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
         </div>
       </section>
@@ -711,54 +984,36 @@ function ResultScreen({
   );
 }
 
-function NameCaptureSheet({
+function AuthSheet({
   disabled,
   error,
   onClose,
-  onSubmit,
+  onContinue,
+  purpose,
 }: {
   disabled: boolean;
   error: string | null;
   onClose: () => void;
-  onSubmit: (displayName: string) => void;
+  onContinue: () => void;
+  purpose: PendingAuthAction;
 }) {
-  const [displayName, setDisplayName] = useState("");
+  const copy =
+    purpose === "challenge"
+      ? "Continue with Google so friends can see who challenged them."
+      : "Continue with Google to keep your scores across devices.";
 
   return (
-    <Sheet onClose={onClose} title="Challenge a friend">
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit(displayName);
-        }}
+    <Sheet onClose={onClose} title="Create your profile">
+      <p className="text-base leading-7 text-[#51483d]">{copy}</p>
+      <button
+        className="mt-5 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={disabled}
+        onClick={onContinue}
+        type="button"
       >
-        <label
-          className="block text-sm font-semibold text-[#6d6255]"
-          htmlFor="display-name"
-        >
-          What should your friend see your name as?
-        </label>
-        <input
-          autoComplete="given-name"
-          autoFocus
-          className="mt-3 min-h-14 w-full rounded-lg border border-[#d8cdbd] bg-white px-4 text-base text-[#221b14] outline-none focus:ring-4 focus:ring-[#8fb7c9]"
-          disabled={disabled}
-          id="display-name"
-          maxLength={32}
-          onChange={(event) => setDisplayName(event.target.value)}
-          placeholder="First name"
-          type="text"
-          value={displayName}
-        />
-        {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
-        <button
-          className="mt-5 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={disabled || displayName.trim().length === 0}
-          type="submit"
-        >
-          {disabled ? "Saving..." : "Continue"}
-        </button>
-      </form>
+        {disabled ? "Opening Google..." : "Continue with Google"}
+      </button>
+      {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
     </Sheet>
   );
 }
@@ -766,6 +1021,7 @@ function NameCaptureSheet({
 function ShareChoiceSheet({
   copyStatus,
   disabled,
+  displayName,
   onClose,
   onCopy,
   onWhatsApp,
@@ -775,6 +1031,7 @@ function ShareChoiceSheet({
 }: {
   copyStatus: string | null;
   disabled: boolean;
+  displayName: string;
   onClose: () => void;
   onCopy: () => void;
   onWhatsApp: () => void;
@@ -783,9 +1040,9 @@ function ShareChoiceSheet({
   topicTitle: string;
 }) {
   return (
-    <Sheet onClose={onClose} title="Challenge someone">
+    <Sheet onClose={onClose} title={`Challenge as ${displayName}`}>
       <p className="text-sm font-medium text-[#6d6255]">
-        Your score: {score}/{total} | {topicTitle}
+        Your score: {score}/{total} - {topicTitle}
       </p>
       <button
         className="mt-5 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
@@ -824,12 +1081,12 @@ function Sheet({
   return (
     <div className="fixed inset-0 z-10 flex items-end bg-black/30 px-4 pb-4">
       <section
-        aria-labelledby="share-sheet-title"
+        aria-labelledby="sheet-title"
         className="mx-auto w-full max-w-md rounded-lg bg-[#f7f3ec] p-5 text-[#221b14] shadow-xl"
         role="dialog"
       >
         <div className="flex items-center justify-between gap-4">
-          <h2 className="text-xl font-semibold" id="share-sheet-title">
+          <h2 className="text-xl font-semibold" id="sheet-title">
             {title}
           </h2>
           <button
@@ -942,7 +1199,7 @@ type Reveal = {
 };
 
 type Challenger = {
-  playerId: string;
+  profileId: string;
   displayName: string;
   result: {
     score: number;

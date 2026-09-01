@@ -1,3 +1,4 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
@@ -13,6 +14,7 @@ import {
 
 type AnswerDoc = Doc<"answers">;
 type InviteDoc = Doc<"invites">;
+type ProfileDoc = Doc<"profiles">;
 
 async function getPlayerByLocalId(ctx: QueryCtx | MutationCtx, playerId: string) {
   return await ctx.db
@@ -41,7 +43,66 @@ async function ensurePlayer(ctx: MutationCtx, playerId: string) {
   return player;
 }
 
-async function getAttempt(
+async function getProfileByAuthUserId(
+  ctx: QueryCtx | MutationCtx,
+  authUserId: Id<"users">,
+) {
+  return await ctx.db
+    .query("profiles")
+    .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+    .unique();
+}
+
+async function getCurrentProfile(ctx: QueryCtx | MutationCtx) {
+  const authUserId = await getAuthUserId(ctx);
+
+  if (!authUserId) {
+    return null;
+  }
+
+  return await getProfileByAuthUserId(ctx, authUserId);
+}
+
+function getInitialDisplayName(user: Doc<"users"> | null) {
+  const googleName = user?.name?.trim();
+
+  if (googleName) {
+    return googleName.slice(0, 48);
+  }
+
+  return "A friend";
+}
+
+async function ensureProfile(ctx: MutationCtx) {
+  const authUserId = await getAuthUserId(ctx);
+
+  if (!authUserId) {
+    throw new Error("Continue with Google before saving this journey.");
+  }
+
+  const existingProfile = await getProfileByAuthUserId(ctx, authUserId);
+
+  if (existingProfile) {
+    return existingProfile;
+  }
+
+  const authUser = await ctx.db.get(authUserId);
+  const profileId = await ctx.db.insert("profiles", {
+    authUserId,
+    email: authUser?.email,
+    displayName: getInitialDisplayName(authUser),
+    createdAt: Date.now(),
+  });
+  const profile = await ctx.db.get(profileId);
+
+  if (!profile) {
+    throw new Error("Profile could not be created.");
+  }
+
+  return profile;
+}
+
+async function getPlayerAttempt(
   ctx: QueryCtx | MutationCtx,
   playerId: string,
   dropId: string,
@@ -52,6 +113,40 @@ async function getAttempt(
       q.eq("playerId", playerId).eq("dropId", dropId),
     )
     .unique();
+}
+
+async function getProfileAttempt(
+  ctx: QueryCtx | MutationCtx,
+  profileId: Id<"profiles">,
+  dropId: string,
+) {
+  return await ctx.db
+    .query("attempts")
+    .withIndex("by_profileId_dropId", (q) =>
+      q.eq("profileId", profileId).eq("dropId", dropId),
+    )
+    .unique();
+}
+
+async function getCanonicalAttempt({
+  ctx,
+  playerId,
+  dropId,
+  profile,
+}: {
+  ctx: QueryCtx | MutationCtx;
+  playerId: string;
+  dropId: string;
+  profile: ProfileDoc | null;
+}) {
+  if (profile) {
+    const profileAttempt = await getProfileAttempt(ctx, profile._id, dropId);
+    if (profileAttempt) {
+      return profileAttempt;
+    }
+  }
+
+  return await getPlayerAttempt(ctx, playerId, dropId);
 }
 
 async function getAnswers(ctx: QueryCtx | MutationCtx, attemptId: Id<"attempts">) {
@@ -73,15 +168,50 @@ async function getInviteByString(ctx: QueryCtx | MutationCtx, inviteId: string) 
 
 async function getReusableInvite(
   ctx: QueryCtx | MutationCtx,
-  inviterPlayerId: string,
+  inviterProfileId: Id<"profiles">,
   dropId: string,
 ) {
   return await ctx.db
     .query("invites")
-    .withIndex("by_inviter_drop", (q) =>
-      q.eq("inviterPlayerId", inviterPlayerId).eq("dropId", dropId),
+    .withIndex("by_inviter_profile_drop", (q) =>
+      q.eq("inviterProfileId", inviterProfileId).eq("dropId", dropId),
     )
     .unique();
+}
+
+async function claimAnonymousAttempts(
+  ctx: MutationCtx,
+  playerId: string,
+  profile: ProfileDoc,
+) {
+  const playerAttempts = await ctx.db
+    .query("attempts")
+    .withIndex("by_playerId_dropId", (q) => q.eq("playerId", playerId))
+    .collect();
+  let claimedCount = 0;
+
+  for (const attempt of playerAttempts) {
+    if (attempt.profileId) {
+      continue;
+    }
+
+    const existingProfileAttempt = await getProfileAttempt(
+      ctx,
+      profile._id,
+      attempt.dropId,
+    );
+
+    if (existingProfileAttempt) {
+      continue;
+    }
+
+    await ctx.db.patch(attempt._id, {
+      profileId: profile._id,
+    });
+    claimedCount += 1;
+  }
+
+  return claimedCount;
 }
 
 function getScore(answers: AnswerDoc[]) {
@@ -95,7 +225,17 @@ function getPublicPlayer(player: Doc<"players"> | null) {
 
   return {
     playerId: player.playerId,
-    displayName: player.displayName,
+  };
+}
+
+function getPublicProfile(profile: ProfileDoc | null) {
+  if (!profile) {
+    return null;
+  }
+
+  return {
+    id: profile._id,
+    displayName: profile.displayName,
   };
 }
 
@@ -158,6 +298,7 @@ function getAttemptPayload(attempt: Doc<"attempts">, answers: AnswerDoc[]) {
       completedAt: attempt.completedAt,
       resultViewedAt: attempt.resultViewedAt,
       sourceInviteId: attempt.sourceInviteId,
+      profileId: attempt.profileId,
     },
     currentQuestion: currentQuestion ? toPublicQuestion(currentQuestion) : null,
     reveal: currentAnswer ? makeRevealPayload(currentAnswer) : null,
@@ -171,13 +312,10 @@ function getAttemptPayload(attempt: Doc<"attempts">, answers: AnswerDoc[]) {
   };
 }
 
-async function getInviteContext(
-  ctx: QueryCtx | MutationCtx,
-  inviteId: string,
-) {
+async function getInviteContext(ctx: QueryCtx | MutationCtx, inviteId: string) {
   const invite = await getInviteByString(ctx, inviteId);
 
-  if (!invite) {
+  if (!invite?.inviterProfileId) {
     return null;
   }
 
@@ -187,13 +325,17 @@ async function getInviteContext(
     return null;
   }
 
-  const inviter = await getPlayerByLocalId(ctx, invite.inviterPlayerId);
+  const inviterProfile = await ctx.db.get(invite.inviterProfileId);
 
-  if (!inviter?.displayName) {
+  if (!inviterProfile) {
     return null;
   }
 
-  const inviterAttempt = await getAttempt(ctx, invite.inviterPlayerId, drop.id);
+  const inviterAttempt = await getProfileAttempt(
+    ctx,
+    inviterProfile._id,
+    drop.id,
+  );
 
   if (!inviterAttempt || inviterAttempt.stage !== "result") {
     return null;
@@ -205,8 +347,8 @@ async function getInviteContext(
     invite,
     drop,
     challenger: {
-      playerId: inviter.playerId,
-      displayName: inviter.displayName,
+      profileId: inviterProfile._id,
+      displayName: inviterProfile.displayName,
       result: {
         score: getScore(inviterAnswers),
         total: drop.questions.length,
@@ -227,7 +369,7 @@ async function getFlowPayload({
   dropId: string;
   invite: InviteDoc | null;
   challenger: {
-    playerId: string;
+    profileId: Id<"profiles">;
     displayName: string;
     result: { score: number; total: number };
   } | null;
@@ -238,6 +380,7 @@ async function getFlowPayload({
     return {
       drop: null,
       player: null,
+      profile: null,
       attemptState: null,
       invite: null,
       challenger: null,
@@ -245,12 +388,19 @@ async function getFlowPayload({
   }
 
   const player = await getPlayerByLocalId(ctx, playerId);
-  const attempt = await getAttempt(ctx, playerId, drop.id);
+  const profile = await getCurrentProfile(ctx);
+  const attempt = await getCanonicalAttempt({
+    ctx,
+    playerId,
+    dropId: drop.id,
+    profile,
+  });
 
   if (!attempt) {
     return {
       drop: toPublicDrop(drop),
       player: getPublicPlayer(player),
+      profile: getPublicProfile(profile),
       attemptState: null,
       invite: invite ? { id: invite._id } : null,
       challenger,
@@ -262,6 +412,7 @@ async function getFlowPayload({
   return {
     drop: toPublicDrop(drop),
     player: getPublicPlayer(player),
+    profile: getPublicProfile(profile),
     attemptState: getAttemptPayload(attempt, answers),
     invite: invite ? { id: invite._id } : null,
     challenger,
@@ -279,6 +430,7 @@ export const getFlowState = query({
       return {
         drop: null,
         player: null,
+        profile: null,
         attemptState: null,
         invite: null,
         challenger: null,
@@ -308,6 +460,7 @@ export const getInviteFlowState = query({
         invalidInvite: true,
         drop: null,
         player: null,
+        profile: null,
         attemptState: null,
         invite: null,
         challenger: null,
@@ -323,6 +476,22 @@ export const getInviteFlowState = query({
         invite: context.invite,
         challenger: context.challenger,
       })),
+    };
+  },
+});
+
+export const ensureProfileAndClaim = mutation({
+  args: {
+    playerId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ensurePlayer(ctx, args.playerId);
+    const profile = await ensureProfile(ctx);
+    const claimedCount = await claimAnonymousAttempts(ctx, args.playerId, profile);
+
+    return {
+      profile: getPublicProfile(profile),
+      claimedCount,
     };
   },
 });
@@ -349,7 +518,17 @@ export const startAttempt = mutation({
 
     await ensurePlayer(ctx, args.playerId);
 
-    const existingAttempt = await getAttempt(ctx, args.playerId, drop.id);
+    const profile = await getCurrentProfile(ctx);
+    if (profile) {
+      await claimAnonymousAttempts(ctx, args.playerId, profile);
+    }
+
+    const existingAttempt = await getCanonicalAttempt({
+      ctx,
+      playerId: args.playerId,
+      dropId: drop.id,
+      profile,
+    });
 
     if (existingAttempt) {
       const answers = await getAnswers(ctx, existingAttempt._id);
@@ -361,6 +540,7 @@ export const startAttempt = mutation({
 
     const attemptId = await ctx.db.insert("attempts", {
       playerId: args.playerId,
+      profileId: profile?._id,
       dropId: drop.id,
       currentQuestionIndex: 0,
       stage: "answering",
@@ -395,7 +575,13 @@ export const submitAnswer = mutation({
       throw new Error("This Drop is not available.");
     }
 
-    const attempt = await getAttempt(ctx, args.playerId, drop.id);
+    const profile = await getCurrentProfile(ctx);
+    const attempt = await getCanonicalAttempt({
+      ctx,
+      playerId: args.playerId,
+      dropId: drop.id,
+      profile,
+    });
 
     if (!attempt) {
       throw new Error("Start the Drop before answering.");
@@ -436,7 +622,7 @@ export const submitAnswer = mutation({
 
     await ctx.db.insert("answers", {
       attemptId: attempt._id,
-      playerId: args.playerId,
+      playerId: attempt.playerId,
       dropId: drop.id,
       questionId: question.id,
       selectedOptionId: selectedOption.id,
@@ -478,7 +664,13 @@ export const continueAfterReveal = mutation({
       throw new Error("This Drop is not available.");
     }
 
-    const attempt = await getAttempt(ctx, args.playerId, drop.id);
+    const profile = await getCurrentProfile(ctx);
+    const attempt = await getCanonicalAttempt({
+      ctx,
+      playerId: args.playerId,
+      dropId: drop.id,
+      profile,
+    });
 
     if (!attempt) {
       throw new Error("Start the Drop first.");
@@ -521,34 +713,6 @@ export const continueAfterReveal = mutation({
   },
 });
 
-export const setDisplayName = mutation({
-  args: {
-    playerId: v.string(),
-    displayName: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const trimmedName = args.displayName.trim();
-
-    if (trimmedName.length < 1 || trimmedName.length > 32) {
-      throw new Error("Enter a first name between 1 and 32 characters.");
-    }
-
-    const player = await ensurePlayer(ctx, args.playerId);
-
-    await ctx.db.patch(player._id, {
-      displayName: trimmedName,
-      updatedAt: Date.now(),
-    });
-
-    return {
-      player: {
-        playerId: player.playerId,
-        displayName: trimmedName,
-      },
-    };
-  },
-});
-
 export const getOrCreateInvite = mutation({
   args: {
     playerId: v.string(),
@@ -562,24 +726,22 @@ export const getOrCreateInvite = mutation({
       throw new Error("This Drop is not available.");
     }
 
-    const player = await getPlayerByLocalId(ctx, args.playerId);
+    await ensurePlayer(ctx, args.playerId);
+    const profile = await ensureProfile(ctx);
+    await claimAnonymousAttempts(ctx, args.playerId, profile);
 
-    if (!player?.displayName) {
-      throw new Error("Add a display name before creating an Invite.");
-    }
-
-    const attempt = await getAttempt(ctx, args.playerId, drop.id);
+    const attempt = await getProfileAttempt(ctx, profile._id, drop.id);
 
     if (!attempt || attempt.stage !== "result") {
       throw new Error("Complete this Drop before creating an Invite.");
     }
 
     const answers = await getAnswers(ctx, attempt._id);
-    const existingInvite = await getReusableInvite(ctx, player.playerId, drop.id);
+    const existingInvite = await getReusableInvite(ctx, profile._id, drop.id);
     const inviteId =
       existingInvite?._id ??
       (await ctx.db.insert("invites", {
-        inviterPlayerId: player.playerId,
+        inviterProfileId: profile._id,
         dropId: drop.id,
         createdAt: Date.now(),
       }));
