@@ -370,6 +370,18 @@ function getAnswerOverlap({
       explanation: string;
       source: { label: string; url: string };
     }[],
+    bothKnewDiscoveries: [] as {
+      questionId: string;
+      prompt: string;
+      explanation: string;
+      source: { label: string; url: string };
+    }[],
+    neitherKnewDiscoveries: [] as {
+      questionId: string;
+      prompt: string;
+      explanation: string;
+      source: { label: string; url: string };
+    }[],
   };
 
   for (const question of drop.questions) {
@@ -378,6 +390,12 @@ function getAnswerOverlap({
 
     if (iKnew && theyKnew) {
       overlap.bothKnew += 1;
+      overlap.bothKnewDiscoveries.push({
+        questionId: question.id,
+        prompt: question.prompt,
+        explanation: question.reveal.explanation,
+        source: question.reveal.source,
+      });
     } else if (iKnew) {
       overlap.youKnewTheyMissed += 1;
       overlap.youKnewTheyMissedDiscoveries.push({
@@ -396,6 +414,12 @@ function getAnswerOverlap({
       });
     } else {
       overlap.neitherKnew += 1;
+      overlap.neitherKnewDiscoveries.push({
+        questionId: question.id,
+        prompt: question.prompt,
+        explanation: question.reveal.explanation,
+        source: question.reveal.source,
+      });
     }
   }
 

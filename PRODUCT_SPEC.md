@@ -3047,7 +3047,7 @@ Lifecycle:
 1. Authenticated A completes a Drop.
 2. A challenges B.
 3. B can play anonymously and receives the full challenged Result.
-4. B chooses `Keep comparing with A`.
+4. B chooses `Keep discovering with A`.
 5. B authenticates.
 6. B's challenged Attempt is claimed into B's Profile.
 7. The app creates or reuses the symmetric `A & B` knowledge pair.
@@ -3103,7 +3103,7 @@ M4 may add:
 * pair creation/reuse after challenged-recipient authentication;
 * challenged Result question-overlap counts;
 * discovery-level examples of what each person knew differently;
-* contextual auth copy: `Keep comparing with {challenger}`;
+* contextual auth copy: `Keep discovering with {challenger}`;
 * a lightweight `You & {name}` pair surface;
 * Home re-entry for existing pairs;
 * one next Challenge action when one person has explored a Drop and the other has not.
@@ -3148,7 +3148,7 @@ Before M4 is treated as closed, verify:
    an unnecessary second auth step.
 5. One real two-Profile production flow proves:
    * anonymous challenged play;
-   * `Keep comparing with {challenger}`;
+   * `Keep discovering with {challenger}`;
    * pair creation after auth;
    * `You & {challenger}`;
    * Home re-entry;
@@ -3177,7 +3177,8 @@ For challenged Results, order the page around:
 1. what was compared: Topic / Area / Drop title;
 2. how the recipient compared with the Challenger;
 3. what each person knew differently;
-4. preserving or opening `You & {challenger}`;
+4. preserving or opening `You & {challenger}` through `Keep discovering with
+   {challenger}` or `See You & {challenger}`;
 5. continuing curiosity through the next Trail bridge;
 6. challenging someone else;
 7. quiet escape to Home.

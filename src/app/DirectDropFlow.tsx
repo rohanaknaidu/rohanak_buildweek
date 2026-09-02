@@ -1604,22 +1604,23 @@ function ResultScreen({
   profile: Profile | null;
   trailContext: TrailContext | null;
 }) {
-  const challengeCopy =
-    score === total
+  const challengeCopy = challenger
+    ? "Curious what someone else knows?"
+    : score === total
       ? `Think someone can match your ${score}/${total}?`
       : `Think someone can beat your ${score}/${total}?`;
   const comparison = challenger ? getComparisonCopy(score, challenger) : null;
   const theme = getTerritoryTheme(drop.experience.visualIdentity);
   const nextBridge =
     trailContext?.nextDrop && trailContext.trail.bridges
-      ? trailContext.trail.bridges[trailContext.position]
+      ? trailContext.trail.bridges[trailContext.position - 1]
       : null;
   const socialActionLabel = challenger
     ? !isAuthenticated
-      ? `Keep comparing with ${challenger.displayName}`
+      ? `Keep discovering with ${challenger.displayName}`
       : challenger.pairId
         ? `See You & ${challenger.displayName}`
-        : `Save this comparison with ${challenger.displayName}`
+        : `Keep discovering with ${challenger.displayName}`
     : "Save my journey";
 
   if (challenger) {
@@ -1655,7 +1656,7 @@ function ResultScreen({
                   {comparison?.headline}
                 </p>
                 <p className="mt-2 text-base font-semibold text-[#c9c0ad]">
-                  You {score}/{total} · {challenger.displayName}{" "}
+                  You {score}/{total} &middot; {challenger.displayName}{" "}
                   {challenger.result.score}/{challenger.result.total}
                 </p>
               </div>
@@ -1664,25 +1665,13 @@ function ResultScreen({
             {challenger.overlap ? (
               <section className="mt-8">
                 <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8fb7c9]">
-                  What you knew differently
+                  What each of you knew
                 </p>
-                <DifferenceDiscoveries
+                <KnowledgeBuckets
                   className="mt-4 max-w-2xl"
                   otherName={challenger.displayName}
                   overlap={challenger.overlap}
-                  variant="summary"
                 />
-                <div className="mt-4 rounded-3xl border border-[#fff8e8]/10 bg-[#fff8e8]/7 p-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#c9c0ad]">
-                    Where you overlapped
-                  </p>
-                  <OverlapGrid
-                    className="mt-3 max-w-xl"
-                    otherName={challenger.displayName}
-                    overlap={challenger.overlap}
-                    variant="compact"
-                  />
-                </div>
               </section>
             ) : null}
           </div>
@@ -1694,7 +1683,7 @@ function ResultScreen({
                   You & {challenger.displayName}
                 </p>
                 <h2 className="mt-3 text-3xl font-semibold leading-tight text-[#fff8e8]">
-                  Keep this comparison.
+                  Keep discovering together.
                 </h2>
               </div>
               <ArtworkSignal
@@ -1703,8 +1692,8 @@ function ResultScreen({
               />
             </div>
             <p className="text-base leading-7 text-[#c9c0ad]">
-              See what you discover differently as you both explore more of Did
-              You Know?.
+              See what you and {challenger.displayName} know differently as new
+              Drops arrive.
             </p>
             <button
               className="mt-6 min-h-14 w-full rounded-full bg-[#fff8e8] px-5 text-base font-bold text-[#101114] shadow-sm transition hover:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35 disabled:cursor-not-allowed disabled:opacity-60"
@@ -2110,32 +2099,129 @@ function PairDropCard({
   );
 }
 
-function OverlapGrid({
+function KnowledgeBuckets({
   className = "",
   otherName,
   overlap,
-  variant = "full",
 }: {
   className?: string;
   otherName: string;
   overlap: AnswerOverlap;
-  variant?: "compact" | "full";
 }) {
-  if (variant === "compact") {
-    return (
-      <div className={`grid gap-2 text-sm font-semibold text-[#c9c0ad] ${className}`}>
-        <p>
-          You both knew {overlap.bothKnew} · Neither knew{" "}
-          {overlap.neitherKnew}
-        </p>
-        <p className="text-[#fff8e8]">
-          You knew {overlap.youKnewTheyMissed} {otherName} missed ·{" "}
-          {otherName} knew {overlap.theyKnewYouMissed} you missed
-        </p>
-      </div>
-    );
-  }
+  const buckets: KnowledgeBucket[] = [
+    {
+      id: "you",
+      count: overlap.youKnewTheyMissed,
+      discoveries: overlap.youKnewTheyMissedDiscoveries,
+      label: `You knew, ${otherName} missed`,
+      tone: "accent",
+    },
+    {
+      id: "them",
+      count: overlap.theyKnewYouMissed,
+      discoveries: overlap.theyKnewYouMissedDiscoveries,
+      label: `${otherName} knew, you missed`,
+      tone: "accent",
+    },
+    {
+      id: "both",
+      count: overlap.bothKnew,
+      discoveries: overlap.bothKnewDiscoveries,
+      label: "Both knew",
+      tone: "quiet",
+    },
+    {
+      id: "neither",
+      count: overlap.neitherKnew,
+      discoveries: overlap.neitherKnewDiscoveries,
+      label: "Neither knew",
+      tone: "quiet",
+    },
+  ];
+  const [expandedBucketId, setExpandedBucketId] = useState<string | null>(null);
+  const expandedBucket =
+    buckets.find((bucket) => bucket.id === expandedBucketId) ?? null;
+  const asymmetricPreviews = buckets
+    .slice(0, 2)
+    .map((bucket) => ({
+      ...bucket,
+      preview: bucket.discoveries[0] ?? null,
+    }))
+    .filter((bucket) => bucket.preview !== null);
 
+  return (
+    <div className={className}>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {buckets.map((bucket) => (
+          <button
+            className={[
+              "rounded-2xl border p-4 text-left transition focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35",
+              bucket.tone === "accent"
+                ? "border-[var(--accent)]/35 bg-[var(--accent)]/10 hover:border-[var(--accent)]/70"
+                : "border-[#fff8e8]/12 bg-[#fff8e8]/7 hover:border-[#fff8e8]/28",
+              expandedBucketId === bucket.id
+                ? "ring-2 ring-[var(--accent)]/50"
+                : "",
+            ].join(" ")}
+            key={bucket.id}
+            onClick={() =>
+              setExpandedBucketId(
+                expandedBucketId === bucket.id ? null : bucket.id,
+              )
+            }
+            type="button"
+          >
+            <span className="block text-3xl font-semibold leading-none text-[#fff8e8]">
+              {bucket.count}
+            </span>
+            <span className="mt-2 block text-sm font-semibold leading-5 text-[#c9c0ad]">
+              {bucket.label}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {expandedBucket ? (
+        <DiscoveryList
+          className="mt-3"
+          discoveries={expandedBucket.discoveries}
+          title={expandedBucket.label}
+          variant="summary"
+        />
+      ) : asymmetricPreviews.length > 0 ? (
+        <div className="mt-3 grid gap-3">
+          {asymmetricPreviews.map((bucket) =>
+            bucket.preview ? (
+              <section
+                className="rounded-3xl border border-[#fff8e8]/12 bg-[#101114]/45 p-4"
+                key={bucket.id}
+              >
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#f2c184]">
+                  {bucket.id === "you"
+                    ? "You knew"
+                    : `${otherName} knew`}
+                </p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#fff8e8]">
+                  {getDiscoverySummary(bucket.preview)}
+                </p>
+              </section>
+            ) : null,
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function OverlapGrid({
+  className = "",
+  otherName,
+  overlap,
+}: {
+  className?: string;
+  otherName: string;
+  overlap: AnswerOverlap;
+}) {
   return (
     <div className={`grid gap-2 sm:grid-cols-2 ${className}`}>
       <OverlapTile label="Both knew" value={overlap.bothKnew} />
@@ -2188,49 +2274,51 @@ function DifferenceDiscoveries({
 }
 
 function DiscoveryList({
+  className = "",
   discoveries,
   title,
   variant = "full",
 }: {
+  className?: string;
   discoveries: AnswerDifference[];
   title: string;
   variant?: "full" | "summary";
 }) {
-  if (discoveries.length === 0) {
-    return null;
-  }
-
   return (
-    <section className="rounded-3xl border border-[#fff8e8]/12 bg-[#101114]/45 p-4">
+    <section className={`rounded-3xl border border-[#fff8e8]/12 bg-[#101114]/45 p-4 ${className}`}>
       <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#f2c184]">
         {title}
       </p>
-      <div className="mt-3 space-y-3">
-        {discoveries.map((discovery) => (
-          <article key={discovery.questionId}>
-            <p className="text-sm font-semibold leading-6 text-[#fff8e8]">
-              {getDiscoverySummary(discovery)}
-            </p>
-            {variant === "full" ? (
-              <p className="mt-1 text-sm leading-6 text-[#c9c0ad]">
-                {discovery.explanation}
+      {discoveries.length === 0 ? (
+        <p className="mt-3 text-sm font-semibold leading-6 text-[#c9c0ad]">
+          Nothing landed here this time.
+        </p>
+      ) : (
+        <div className="mt-3 space-y-3">
+          {discoveries.map((discovery) => (
+            <article key={discovery.questionId}>
+              <p className="text-sm font-semibold leading-6 text-[#fff8e8]">
+                {getDiscoverySummary(discovery)}
               </p>
-            ) : (
-              <p className="mt-1 text-xs font-semibold leading-5 text-[#c9c0ad]">
-                From: {discovery.prompt}
-              </p>
-            )}
-            <a
-              className="mt-2 inline-flex text-xs font-bold uppercase tracking-[0.16em] text-[#8fb7c9] underline-offset-4 hover:underline"
-              href={discovery.source.url}
-              rel="noreferrer"
-              target="_blank"
-            >
-              Source: {discovery.source.label}
-            </a>
-          </article>
-        ))}
-      </div>
+              {variant === "full" ? (
+                <>
+                  <p className="mt-1 text-sm leading-6 text-[#c9c0ad]">
+                    {discovery.explanation}
+                  </p>
+                  <a
+                    className="mt-2 inline-flex text-xs font-bold uppercase tracking-[0.16em] text-[#8fb7c9] underline-offset-4 hover:underline"
+                    href={discovery.source.url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Source: {discovery.source.label}
+                  </a>
+                </>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -2271,7 +2359,7 @@ function AuthSheet({
     purpose === "challenge"
       ? "Continue with Google so friends can see who challenged them."
       : purpose === "compare"
-        ? "Continue with Google to keep this comparison and see what you discover differently."
+        ? "Continue with Google to keep discovering together."
         : "Continue with Google to keep your scores across devices.";
 
   return (
@@ -2566,6 +2654,8 @@ type AnswerOverlap = {
   neitherKnew: number;
   youKnewTheyMissedDiscoveries: AnswerDifference[];
   theyKnewYouMissedDiscoveries: AnswerDifference[];
+  bothKnewDiscoveries: AnswerDifference[];
+  neitherKnewDiscoveries: AnswerDifference[];
 };
 
 type AnswerDifference = {
@@ -2576,6 +2666,14 @@ type AnswerDifference = {
     label: string;
     url: string;
   };
+};
+
+type KnowledgeBucket = {
+  id: string;
+  count: number;
+  discoveries: AnswerDifference[];
+  label: string;
+  tone: "accent" | "quiet";
 };
 
 type HomeDropStatus = "unstarted" | "inProgress" | "completed";
