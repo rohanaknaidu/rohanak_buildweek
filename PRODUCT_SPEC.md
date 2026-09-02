@@ -34,10 +34,10 @@ When implementation or further reasoning exposes an inconsistency, update this d
 
 A Player:
 
-1. plays a fixed set of 5 Questions about a Topic;
+1. plays an ordered set of Questions in a Drop;
 2. learns something immediately after every Answer;
-3. receives a score out of 5;
-4. can Challenge a friend to the exact same set of Questions;
+3. receives a score out of that Drop's Question count;
+4. can Challenge a friend to the exact same ordered set of Questions;
 5. the friend plays independently, at their own time;
 6. the friend compares their Result directly with the Challenger;
 7. the friend can then Challenge someone else;
@@ -116,9 +116,9 @@ Examples:
 * Economics
 * Cinema
 
-V1 has exactly one Topic:
+M3 production has multiple Topics represented through LIVE Drops.
 
-**Space**
+**Space** is the first Topic, not the identity of the product.
 
 A Topic can continue receiving new content indefinitely.
 
@@ -164,9 +164,13 @@ Therefore:
 
 A **Drop** is one fixed, scheduled content release.
 
-Every V1 Drop contains exactly:
+M3 Drops currently ship with:
 
 **5 curated Questions**
+
+That is an editorial product choice for the current short-form experience, not an engine invariant.
+
+The product engine must derive the total Question count from the Drop content and support variable Question counts without changing play, Result, Invite, Profile, ownership, or generic Home logic.
 
 Example:
 
@@ -184,7 +188,7 @@ Drop:
 
 Questions:
 
-`5`
+`5` for the current M3 editorial format; variable `N` at the product-engine level.
 
 A Drop is the atomic unit of:
 
@@ -196,7 +200,7 @@ A Drop is the atomic unit of:
 * completion;
 * analytics.
 
-Everyone being compared on a Drop receives the exact same five Questions.
+Everyone being compared on a Drop receives the exact same ordered Questions.
 
 A released Drop remains playable after newer Drops release.
 
@@ -234,14 +238,16 @@ Before the Player answers, the Question state should show:
 * Question prompt;
 * 2-4 answer options.
 
-Because V1 has only one Topic, do not repeat the Topic on every Question.
+M3 Home and Invite surfaces should make Topic legible.
+
+During Question play, do not repeat Topic unless it materially improves orientation.
 
 The Drop title also does not need to repeat on every Question.
 
 The progress treatment should combine:
 
-* five-step visual progress;
-* explicit `N/5` text.
+* one visual step per Question in the Drop;
+* explicit `current Question / total Questions` text.
 
 Progress must distinguish conceptually between:
 
@@ -339,17 +345,17 @@ Do not show citation blocks or academic formatting in V1.
 
 The exact source-link interaction remains OPEN.
 
-For Questions 1-4, the Reveal CTA should be:
+For every non-final Question, the Reveal CTA should be:
 
 `Next question`
 
-For Question 5, the Reveal CTA should be:
+For the final Question, the Reveal CTA should be:
 
 `See result`
 
 Do not insert an interstitial state between a Reveal and the next Question.
 
-Reveal 5 still appears before the Result.
+The final Reveal still appears before the Result.
 
 During Question and Reveal states, do not show:
 
@@ -614,7 +620,7 @@ A **Result** is the outcome of one completed Attempt.
 
 The primary representation is:
 
-`correct answers / 5`
+`correct answers / total Questions in this Drop`
 
 Example:
 
@@ -699,7 +705,7 @@ Tie means:
 
 the Player and Challenger scored equally.
 
-Win / loss / tie are determined only by comparing Results out of 5.
+Win / loss / tie are determined only by comparing Results for the same Drop, using that Drop's total Question count.
 
 Win copy should clearly communicate that the Player scored higher than the Challenger.
 
@@ -737,9 +743,9 @@ Do not imply that the Player is forwarding their Challenger's Result or Challeng
 
 ### LOCKED
 
-A Player with `5/5` cannot logically ask someone else to beat that Result.
+A Player with a perfect score cannot logically ask someone else to beat that Result.
 
-For scores `0-4/5`, Result and Invite copy may use the semantic idea:
+For non-perfect scores, Result and Invite copy may use the semantic idea:
 
 `beat`
 
@@ -751,7 +757,7 @@ Example Invite intent:
 
 `I got 3/5 on this Space challenge. Think you can beat me?`
 
-For score `5/5`, Result and Invite copy should use the semantic idea:
+For a perfect score, Result and Invite copy should use the semantic idea:
 
 `match`
 
@@ -2000,22 +2006,37 @@ Fresh Direct Home is the experience for a new Player who opens Did You Know? dir
 
 It should:
 
-* sell the immediate Space challenge;
+* make Did You Know? feel like a small guided world of surprising knowledge;
+* show the current visible Trail;
+* make Topic and Area legible as content context;
+* show per-Drop exploration state;
 * lightly hint that the Result can become social;
 * avoid explaining the full Challenge mechanics;
-* use familiar first-time language such as `Space challenge`;
-* proceed directly into Question 1.
+* let the Player choose any LIVE Drop in the visible Trail.
 
 `Drop` remains the canonical domain/content term, but a fresh Player does not need to understand that term before playing.
 
 Required semantic hierarchy:
 
 1. `Did You Know?`;
-2. short proposition combining knowledge and social comparison;
-3. `Space`;
-4. current/latest LIVE Drop title;
-5. `5 questions`;
-6. primary CTA: `Play`.
+2. a curiosity-led proposition such as `Follow a thread of curiosity`;
+3. visible Trail title / description;
+4. quiet explored count such as `1 of 3 explored`;
+5. LIVE Drop entries in Trail order;
+6. each Drop's Topic, Area, title, Question count, and state/action.
+
+Drop states on Home:
+
+* `Explore` for an unstarted LIVE Drop;
+* `Continue - N/total questions` for an in-progress Drop;
+* `Explored - X/total correct` for a completed Drop.
+
+Home actions:
+
+* `Explore` starts that Drop;
+* `Continue` resumes that Drop;
+* `Explored` opens that Drop's Result;
+* completed Drops do not replay in M3.
 
 Exact marketing copy remains a design/copy decision.
 
@@ -2023,8 +2044,6 @@ Fresh Direct Home should not require:
 
 * name;
 * authentication / Profile creation;
-* Area;
-* Journey;
 * upcoming Drop;
 * aggregate statistics;
 * share options;
@@ -2033,6 +2052,16 @@ Fresh Direct Home should not require:
 Approximate duration remains optional and should only be shown if honest for the actual content.
 
 Do not create a separate Drop-intro screen in V1.
+
+Do not turn M3 Home into:
+
+* Browse Topics;
+* Categories;
+* All Drops;
+* a content marketplace;
+* a Knowledge Map;
+* a course completion dashboard;
+* a recommendation feed.
 
 ---
 
@@ -2052,16 +2081,11 @@ Every Result should provide:
 
 It must not route a completed Player back into the same completed Result forever.
 
-For a Player or Profile who has completed the currently selected/default LIVE content, the minimal caught-up Home may show:
+M3 supersedes the one-Drop caught-up Home with Guided Exploration Home.
 
-* `DID YOU KNOW?`;
-* `TOPIC`;
-* `Space`;
-* `You're caught up.`;
-* completed Drop title;
-* `Completed · X/5`;
-* `View result`;
-* `More to discover in Space soon.`
+For a Player or Profile who has completed one LIVE Drop but not all LIVE Drops, Home should show that Drop as explored and leave the other visible Trail entries available.
+
+For a Player or Profile who has completed all currently visible LIVE Drops, Home may quietly communicate that the Player has explored the available Trail without introducing mastery, XP, streaks, leaderboard, or Knowledge Map claims.
 
 For an anonymous Player, the minimal caught-up Home should also quietly communicate:
 
@@ -2638,7 +2662,228 @@ Do not implement in M2.2:
 
 ---
 
-# 31. Next Section To Define
+# 31. M3 - Guided Exploration
+
+## CURRENT DIRECTION
+
+M3 should make Did You Know? feel, for the first time, like a small living world of surprising knowledge rather than a single quiz with more content.
+
+Strategic thesis:
+
+`Did You Know? turns surprising knowledge into a social object: something you can discover, accumulate, compare with people you know, and pass onward.`
+
+Product guardrail:
+
+`Every feature should make knowledge more valuable personally, persistently, or socially, not merely make the quiz more elaborate.`
+
+M3's product milestone:
+
+`One surprising Drop naturally opens into another, creating a connected Trail through the Did You Know? world.`
+
+Trails are:
+
+* editorially ordered;
+* visible to the user;
+* guided, never gated;
+* independent of Topic / Area hierarchy;
+* not a Knowledge Map or prerequisite system.
+
+Every Drop remains independently playable and independently challengeable through its Invite URL.
+
+## M3 Content Contract
+
+CMS-ready means only:
+
+`Content can change without product-engine code changing.`
+
+A future content operator should eventually be able to change:
+
+* Topics;
+* Areas;
+* Drops;
+* Drop titles / descriptions;
+* Question count;
+* Question order;
+* prompts / options;
+* correct answers;
+* Reveals;
+* sources;
+* Trail membership / order;
+
+without changing:
+
+* play engine;
+* Attempt / Answer logic;
+* Result / scoring;
+* Invite / challenge behavior;
+* Profile / auth;
+* ownership / claiming;
+* generic Home / Trail rendering.
+
+M3 uses source-controlled structured content.
+
+Do not build CMS/admin/editor infrastructure in M3.
+
+Content records must be plain serializable data: strings, IDs, arrays, numbers, booleans, and simple metadata.
+
+Topic, Area, Drop, Question, Option, Reveal, Source, and Trail content records must not contain:
+
+* React components;
+* callbacks;
+* functions;
+* product-engine behavior;
+* application-specific rendering logic;
+* auth / ownership / social behavior.
+
+Acceptance test:
+
+`Could the production content corpus be represented as JSON and later supplied by a CMS/database without losing product meaning or requiring play/result/invite logic to change?`
+
+## M3 Question Count Contract
+
+M3 Drops currently ship with 5 Questions as an editorial product choice.
+
+The product engine must derive total Question count from Drop content and support variable `N` without engine changes.
+
+Derive these from the resolved Drop:
+
+* question progress;
+* current Question number;
+* completion condition;
+* final `See result` condition;
+* Result `X/N`;
+* challenger `X/N` comparison;
+* Home `Continue` state;
+* Home `Explored` state;
+* share copy;
+* Invite / result copy;
+* server validation.
+
+A Drop completes when its ordered Question set is exhausted.
+
+Do not change the M3 production Drops away from five Questions merely because the engine supports variable `N`.
+
+## M3 Trail Contract
+
+Add a lightweight source-controlled Trail model:
+
+```text
+Trail
+- id
+- title
+- description
+- dropIds[]
+```
+
+The ordered `dropIds[]` is the editorial sequence.
+
+Do not put `nextDropId` or `previousDropId` onto Drops.
+
+Derive previous / next Trail position from Trail order so a Drop is not structurally coupled to a single editorial sequence.
+
+Design so a Drop could theoretically appear in another Trail later, but do not build multi-Trail UX unless it is naturally trivial.
+
+Do not add:
+
+* graph edges;
+* prerequisites;
+* locks / unlocks;
+* coordinates;
+* branching algorithms;
+* recommendation logic.
+
+## M3 Experience
+
+Build boldly toward this experience:
+
+`The user finishes one Drop, sees that exploration recorded, and naturally understands where the thread can lead next.`
+
+Home should render the visible Trail from structured Trail / Drop / Topic / Area content.
+
+Home should feel like a connected thread of curiosity, not a category grid, quiz library, or course dashboard.
+
+Home states:
+
+* `Explore`;
+* `Continue - N/total questions`;
+* `Explored - X/total correct`.
+
+Result should understand Trail context.
+
+For direct / Home play:
+
+* Trail continuation may be prominent.
+
+For challenged play:
+
+* challenger comparison / social context remains primary;
+* Trail continuation remains available but secondary.
+
+`Back to Home` remains available.
+
+## M3 Content
+
+Use real editable content, not placeholders.
+
+The first M3 Trail should start from the existing Space / Solar System Drop and guide naturally into adjacent knowledge territory.
+
+Do not block implementation on perfecting the final Trail wording or every discovery premise. The content model must make later editorial refinement cheap.
+
+Maintain the Reveal-first quality standard:
+
+* the underlying fact is worth knowing;
+* a reliable source verifies it;
+* there is a common intuition, misconception, or prediction the Question can surface;
+* the Reveal explains why the answer matters, not merely what the answer is;
+* a Player could plausibly tell someone else the fact afterward;
+* the Reveal is still rewarding if the Player answered correctly.
+
+## M3 Scope Alarms
+
+Stop and report before proceeding if implementation starts requiring:
+
+* CMS / admin infrastructure;
+* new auth architecture;
+* Profile / Invite ownership redesign;
+* Knowledge Map;
+* Concept graph;
+* XP / mastery / streaks;
+* friend graph / feed;
+* recommendation engine;
+* AI question generation;
+* substantial new infrastructure that does not improve the M3 Guided Exploration experience.
+
+## M3 Out Of Scope
+
+Do not implement in M3:
+
+* CMS UI;
+* editor permissions;
+* scheduling;
+* preview system;
+* archive workflow;
+* editorial analytics;
+* database-backed content migration;
+* Knowledge Map;
+* Concepts / knowledge graph;
+* mastery;
+* XP;
+* streaks;
+* leaderboard;
+* recommendation engine;
+* friend graph;
+* AI-generated live questions;
+* creator tools;
+* replay;
+* Browse Topics;
+* Categories;
+* All Drops;
+* topic marketplace;
+* global content library navigation.
+
+---
+
+# 32. Next Section To Define
 
 ## TODO - Concrete V1 User Journeys
 
