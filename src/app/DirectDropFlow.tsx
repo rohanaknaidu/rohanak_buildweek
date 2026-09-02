@@ -18,6 +18,10 @@ import { api } from "../../convex/_generated/api";
 type PlayerIdState = "loading" | string;
 type ShareState = "closed" | "auth" | "choices";
 type PendingAuthAction = "challenge" | "save";
+type ActiveDropSelection = {
+  dropId: string;
+  source: "storage" | "url" | "user";
+};
 
 const playerIdStorageKey = "did-you-know.playerId";
 const pendingAuthActionStorageKey = "did-you-know.pendingAuthAction";
@@ -79,11 +83,26 @@ function getPendingAuthAction() {
   return value === "challenge" || value === "save" ? value : null;
 }
 
-function getPendingDropId() {
+function getPendingDropSelection(): ActiveDropSelection | null {
   const searchValue = new URLSearchParams(window.location.search).get(
     dropIdSearchParam,
   );
-  return searchValue ?? window.localStorage.getItem(activeDropStorageKey);
+
+  if (searchValue) {
+    return {
+      dropId: searchValue,
+      source: "url",
+    };
+  }
+
+  const storageValue = window.localStorage.getItem(activeDropStorageKey);
+
+  return storageValue
+    ? {
+        dropId: storageValue,
+        source: "storage",
+      }
+    : null;
 }
 
 function makeAuthReturnPath({
@@ -154,9 +173,11 @@ function DropFlowInner({
 }) {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const { signIn, signOut } = useAuthActions();
-  const [activeDropId, setActiveDropId] = useState<string | null>(() =>
-    inviteId ? null : getPendingDropId(),
-  );
+  const [activeDropSelection, setActiveDropSelection] =
+    useState<ActiveDropSelection | null>(() =>
+      inviteId ? null : getPendingDropSelection(),
+    );
+  const activeDropId = activeDropSelection?.dropId ?? null;
   const homeState = useQuery(
     api.directFlow.getHomeState,
     inviteId ? "skip" : { playerId },
@@ -170,6 +191,11 @@ function DropFlowInner({
     inviteId ? { playerId, inviteId } : "skip",
   );
   const flowState = inviteId ? inviteFlowState : directFlowState;
+  const shouldRecoverFromStaleStoredDrop =
+    !inviteId &&
+    activeDropSelection?.source === "storage" &&
+    directFlowState !== undefined &&
+    !directFlowState.drop;
   const startAttempt = useMutation(api.directFlow.startAttempt);
   const submitAnswer = useMutation(api.directFlow.submitAnswer);
   const continueAfterReveal = useMutation(api.directFlow.continueAfterReveal);
@@ -228,7 +254,7 @@ function DropFlowInner({
             setShareState("choices");
           } else {
             setShareState("closed");
-            setActiveDropId(null);
+            setActiveDropSelection(null);
           }
         } catch {
           setError("Could not finish sign-in. Please try again.");
@@ -252,7 +278,7 @@ function DropFlowInner({
         setClaimedProfile(null);
         setJourneySavedNotice(false);
         setIsAccountOpen(false);
-        setActiveDropId(null);
+        setActiveDropSelection(null);
         window.localStorage.removeItem(activeDropStorageKey);
         onPlayerIdRotated();
       } catch {
@@ -290,11 +316,19 @@ function DropFlowInner({
     playerId,
   ]);
 
+  useEffect(() => {
+    if (!shouldRecoverFromStaleStoredDrop) {
+      return;
+    }
+
+    window.localStorage.removeItem(activeDropStorageKey);
+  }, [shouldRecoverFromStaleStoredDrop]);
+
   if (authLoading) {
     return <ShellLoading />;
   }
 
-  if (!inviteId && !activeDropId) {
+  if (!inviteId && (!activeDropId || shouldRecoverFromStaleStoredDrop)) {
     if (homeState === undefined) {
       return <ShellLoading />;
     }
@@ -311,7 +345,7 @@ function DropFlowInner({
           onOpenAccount={profile ? () => setIsAccountOpen(true) : undefined}
           onOpenDrop={(dropId, status) => {
             setError(null);
-            setActiveDropId(dropId);
+            setActiveDropSelection({ dropId, source: "user" });
             window.localStorage.setItem(activeDropStorageKey, dropId);
             if (status === "completed") {
               return;
@@ -321,7 +355,7 @@ function DropFlowInner({
               try {
                 await startAttempt({ playerId, dropId });
               } catch {
-                setActiveDropId(null);
+                setActiveDropSelection(null);
                 window.localStorage.removeItem(activeDropStorageKey);
                 setError("Could not start the challenge. Please try again.");
               }
@@ -539,7 +573,7 @@ function DropFlowInner({
           isAuthenticated={profile !== null}
           journeySavedNotice={journeySavedNotice}
           onBackToHome={() => {
-            setActiveDropId(null);
+            setActiveDropSelection(null);
             window.localStorage.removeItem(activeDropStorageKey);
           }}
           onChallenge={openShareChoices}
@@ -552,7 +586,10 @@ function DropFlowInner({
                   }
                   setError(null);
                   setShareState("closed");
-                  setActiveDropId(nextDropId);
+                  setActiveDropSelection({
+                    dropId: nextDropId,
+                    source: "user",
+                  });
                   window.localStorage.setItem(activeDropStorageKey, nextDropId);
                   startTransition(async () => {
                     try {

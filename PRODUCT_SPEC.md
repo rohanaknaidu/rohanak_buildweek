@@ -2983,6 +2983,11 @@ Generic rendering may switch on visual vocabulary keys only.
 
 Do not branch visual or product behavior on Drop ID or Topic ID.
 
+Restored local browser Drop selection must be resilient to content changes. If
+the stored active Drop no longer resolves to a LIVE Drop, the app clears that
+local navigation state and returns to Home. Invalid Invite URLs keep their
+explicit Invite error semantics.
+
 ## M3.2 Out Of Scope
 
 Do not add:
