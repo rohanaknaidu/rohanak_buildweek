@@ -74,6 +74,46 @@ Push `main` when:
 
 Do not leave important completed work only on the local machine.
 
+## Deployment Model
+
+### Frontend
+
+`git push origin main`
+
+-> GitHub
+
+-> Vercel automatically deploys the frontend.
+
+Do not manually run Vercel deploys for normal checkpoints.
+
+### Convex
+
+Convex production is NOT auto-deployed by Vercel in this project.
+
+Run Convex production deploy when:
+
+* files under `convex/` change; OR
+* files imported by Convex functions change.
+
+This currently includes content such as:
+
+* `content/registry.ts`;
+* `content/topics.ts`;
+* `content/areas.ts`;
+* `content/drops/*`.
+
+These content files are included because `convex/directFlow.ts` imports that content into the Convex bundle.
+
+Current production command:
+
+```powershell
+npx.cmd convex deploy --yes
+```
+
+Do not re-investigate whether Convex auto-deploy is configured unless the deployment configuration itself later changes.
+
+Do not automate Convex through Vercel as part of M3.0.
+
 ## Safety
 
 Never commit:

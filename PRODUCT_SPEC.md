@@ -627,7 +627,7 @@ The Result's default job hierarchy is:
 1. tell the Player how they did;
 2. if relevant, tell the Player how they compared with their direct Challenger;
 3. make the Player's own Result feel worth challenging someone with;
-4. provide a real exit back to Space;
+4. provide a real exit back to Home;
 5. offer anonymous Players a quiet way to save their Journey.
 
 The Result should not become a report card, social leaderboard, Knowledge Map, or release calendar.
@@ -645,7 +645,7 @@ Default hierarchy:
 3. Drop title;
 4. social provocation around the Player's own Result;
 5. `Challenge a friend`;
-6. `Back to Space`;
+6. `Back to Home`;
 7. quiet `Save my journey` prompt when the Player is anonymous.
 
 Example intent:
@@ -660,7 +660,7 @@ Example intent:
 
 `Challenge a friend`
 
-`Back to Space ->`
+`Back to Home ->`
 
 `Save my journey`
 
@@ -684,7 +684,7 @@ Default hierarchy:
 4. Drop title;
 5. social provocation around the current Player's own Result;
 6. `Challenge a friend`;
-7. `Back to Space`;
+7. `Back to Home`;
 8. quiet `Save my journey` prompt when the Player is anonymous.
 
 Win means:
@@ -723,7 +723,7 @@ Example win intent:
 
 `Challenge a friend`
 
-`Back to Space ->`
+`Back to Home ->`
 
 The Challenger gets the Player into the Drop.
 
@@ -787,7 +787,7 @@ These may live in Journey or later experiments where appropriate.
 
 `Challenge a friend` remains the primary Result action.
 
-`Back to Space` remains the secondary Result action.
+`Back to Home` remains the secondary Result action.
 
 For anonymous Players, `Save my journey` is a quiet persistence prompt, not an authentication wall before seeing the Result.
 
@@ -1366,7 +1366,7 @@ Use one Profile / auth flow with two entry points:
 
 ## Save My Journey
 
-Anonymous Result / Space Home:
+Anonymous Result / caught-up Home:
 
 `Save my journey`
 
@@ -1376,7 +1376,7 @@ Anonymous Result / Space Home:
 
 -> claim eligible anonymous progress
 
--> return to Space
+-> return to Home
 
 ## Challenge A Friend While Anonymous
 
@@ -1447,7 +1447,7 @@ Desired sequence:
 At Result, the Player may:
 
 * Challenge a friend, which requires Profile creation if anonymous;
-* Back to Space without authentication;
+* Back to Home without authentication;
 * Save my journey.
 
 ## Fresh Invited Player
@@ -1469,7 +1469,7 @@ Desired sequence:
 At Result, the Player may:
 
 * Challenge a friend, which requires Profile creation if anonymous;
-* Back to Space without authentication;
+* Back to Home without authentication;
 * Save my journey.
 
 The anonymous Player can still see:
@@ -2036,7 +2036,7 @@ Do not create a separate Drop-intro screen in V1.
 
 ---
 
-# 23. Result Escape And Minimal Space Home
+# 23. Result Escape And Minimal Caught-Up Home
 
 ## LOCKED
 
@@ -2045,31 +2045,32 @@ The Result screen must not be a dead end.
 Every Result should provide:
 
 * primary action: `Challenge a friend`;
-* secondary action: `Back to Space`;
+* secondary action: `Back to Home`;
 * quiet persistence prompt for anonymous Players: `Save my journey`.
 
-`Back to Space` must work without authentication.
+`Back to Home` must work without authentication.
 
 It must not route a completed Player back into the same completed Result forever.
 
-For a Player or Profile who has completed all currently released Space content, the minimal Space Home may show:
+For a Player or Profile who has completed the currently selected/default LIVE content, the minimal caught-up Home may show:
 
 * `DID YOU KNOW?`;
-* `SPACE`;
+* `TOPIC`;
+* `Space`;
 * `You're caught up.`;
 * completed Drop title;
 * `Completed · X/5`;
 * `View result`;
-* `More Space coming soon.`
+* `More to discover in Space soon.`
 
-For an anonymous Player, the minimal Space Home should also quietly communicate:
+For an anonymous Player, the minimal caught-up Home should also quietly communicate:
 
 * progress is saved on this device;
 * `Save my journey`.
 
 For an authenticated Profile, do not show the saved-on-this-device warning.
 
-Authenticated Home, Space Home, and Result should show a quiet account affordance using `Profile.displayName`.
+Authenticated Home, caught-up Home, and Result should show a quiet account affordance using `Profile.displayName`.
 
 Example semantic intent:
 
@@ -2081,7 +2082,7 @@ Tapping it opens a minimal account sheet containing:
 
 * Profile display name;
 * Profile email, visible only to the signed-in user;
-* `Your Space journey is saved to your profile.`;
+* `Your progress is saved to your profile.`;
 * `Sign out`.
 
 Do not show Profile email in Invite, share, social, or public comparison surfaces.
@@ -2133,6 +2134,18 @@ Current engineering stack:
 | Architecture | Minimal, V1-specific, no speculative abstractions |
 
 The repository/application has been scaffolded with the M0 foundation.
+
+M3.0 established a content-scalability foundation without changing the user journey:
+
+* Topic and Area are first-class source-controlled content records.
+* Drops reference Topic and Area by ID rather than embedding Space as generic app structure.
+* Space is current content, not the identity of Did You Know?.
+* Production currently still has exactly one LIVE Drop.
+* Direct Home currently selects the highest `releaseOrder` LIVE Drop as an explicit temporary M3.0 policy.
+* That policy is NOT the long-term Journey 3 / returning-player rule.
+* Multiple-Drop Home / Journey behavior remains intentionally undefined.
+* No Knowledge Map, Concepts, mastery, XP, recommendation, second production Topic, or new social mechanics were introduced.
+* M3.0 was an architectural foundation checkpoint; the user journey intentionally remained essentially unchanged.
 
 M2.1 introduces durable authentication.
 
@@ -2259,7 +2272,7 @@ Use the locked Direct Result contract:
 * Drop title;
 * social provocation around the Player's own Result;
 * `Challenge a friend`;
-* `Back to Space`;
+* `Back to Home`;
 * quiet `Save my journey` prompt when the Player is anonymous.
 
 Do not show aggregate statistics or Question-by-Question recap on the default Direct Result.
@@ -2281,9 +2294,9 @@ Journey 1's social handoff is complete when:
 
 If the Player chooses:
 
-`Back to Space`
+`Back to Home`
 
-show the minimal Space Home / caught-up state when appropriate.
+show the minimal caught-up Home state when appropriate.
 
 Do not define the full Journey destination here. Journey 3 will define the richer Journey experience.
 
@@ -2293,7 +2306,7 @@ If an anonymous Player chooses:
 
 `Save my journey`
 
-follow the locked Profile / auth flow, claim eligible anonymous progress, and return to Space.
+follow the locked Profile / auth flow, claim eligible anonymous progress, and return to Home.
 
 ## Screen / State Inventory
 
@@ -2470,7 +2483,7 @@ Minimum recovery state:
 
 Primary CTA:
 
-`Play the latest Space challenge`
+`Play the latest challenge`
 
 Do not create an elaborate recovery system.
 
@@ -2546,8 +2559,8 @@ M2.1 includes:
 * `Save my journey`;
 * `Challenge a friend` requiring Profile authentication when the Player is anonymous;
 * Profile-owned reusable Invites;
-* `Back to Space`;
-* minimal caught-up Space Home;
+* `Back to Home`;
+* minimal caught-up Home;
 * signed-in cross-browser / cross-device return acceptance.
 
 ## Out Of Scope
@@ -2602,7 +2615,7 @@ M2.2 includes:
 * sign-out through Convex Auth;
 * new browser-local `playerId` generation after successful sign-out;
 * clearing transient auth / share / Profile UI state on sign-out;
-* authenticated account chip on Home, Space Home, and Result;
+* authenticated account chip on Home, caught-up Home, and Result;
 * minimal account sheet;
 * one-time `Journey saved` confirmation after meaningful auth + claim;
 * shared-device sign-out / sign-in acceptance testing.
@@ -2618,7 +2631,7 @@ Do not implement in M2.2:
 * email visibility in social surfaces;
 * Knowledge Map;
 * Journey 3;
-* returning-player content cadence beyond the existing minimal Space Home;
+* returning-player content cadence beyond the existing minimal caught-up Home;
 * new authentication providers;
 * email notifications;
 * analytics events.
