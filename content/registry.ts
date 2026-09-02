@@ -59,6 +59,7 @@ export type Trail = {
   title: string;
   description: string;
   dropIds: string[];
+  bridges: string[];
 };
 
 export type TrailContext = {
@@ -136,6 +137,7 @@ export function toPublicTrail(trail: Trail) {
     id: trail.id,
     title: trail.title,
     description: trail.description,
+    bridges: trail.bridges,
   };
 }
 
@@ -187,6 +189,12 @@ function resolveDrop(drop: DropContent): Drop {
 }
 
 function resolveTrail(trail: Trail): Trail {
+  if (trail.bridges.length !== Math.max(trail.dropIds.length - 1, 0)) {
+    throw new Error(
+      `Trail "${trail.id}" must include one bridge for each Drop transition.`,
+    );
+  }
+
   for (const dropId of trail.dropIds) {
     const drop = getDrop(dropId);
 

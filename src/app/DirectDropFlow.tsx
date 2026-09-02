@@ -3,7 +3,7 @@
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import {
   useCallback,
   useEffect,
@@ -364,9 +364,10 @@ function DropFlowInner({
 
   if (!flowState.drop) {
     return (
-      <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
-        <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
+      <main className="relative min-h-screen overflow-hidden bg-[#101114] px-5 py-8 text-[#fff8e8]">
+        <WorldAtmosphere />
+        <section className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#f2c184]">
             Did You Know?
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-normal">
@@ -594,13 +595,13 @@ function DropFlowInner({
 
   return (
     <PlayScreen
-      areaTitle={flowState.drop.area.name}
       committedOptionId={
         committedAnswer?.questionId === question.id
           ? committedAnswer.optionId
           : null
       }
       disabled={isPending}
+      drop={flowState.drop}
       error={error}
       onContinue={() => {
         setError(null);
@@ -643,6 +644,118 @@ function DropFlowInner({
   );
 }
 
+type TerritoryTheme = {
+  accent: string;
+  secondary: string;
+  name: string;
+  pattern: string;
+};
+
+const defaultTheme: TerritoryTheme = {
+  accent: "#f2c184",
+  secondary: "#8fb7c9",
+  name: "unknown",
+  pattern:
+    "linear-gradient(135deg, rgba(242, 193, 132, 0.10), transparent 38%), repeating-linear-gradient(90deg, rgba(255, 248, 232, 0.05) 0 1px, transparent 1px 58px)",
+};
+
+function getTerritoryTheme(topicId: string): TerritoryTheme {
+  if (topicId === "space") {
+    return {
+      accent: "#f2c184",
+      secondary: "#6f9dff",
+      name: "space",
+      pattern:
+        "radial-gradient(circle at 20% 20%, rgba(242, 193, 132, 0.16) 0 1px, transparent 2px), radial-gradient(circle at 80% 30%, rgba(111, 157, 255, 0.14) 0 1px, transparent 2px), repeating-linear-gradient(115deg, rgba(255, 248, 232, 0.04) 0 1px, transparent 1px 72px)",
+    };
+  }
+
+  if (topicId === "physics") {
+    return {
+      accent: "#8fb7c9",
+      secondary: "#f2c184",
+      name: "physics",
+      pattern:
+        "repeating-radial-gradient(ellipse at 65% 30%, rgba(143, 183, 201, 0.18) 0 1px, transparent 2px 36px), linear-gradient(140deg, rgba(143, 183, 201, 0.08), transparent 48%)",
+    };
+  }
+
+  if (topicId === "body") {
+    return {
+      accent: "#d67f7f",
+      secondary: "#a4d6b2",
+      name: "body",
+      pattern:
+        "repeating-linear-gradient(155deg, rgba(214, 127, 127, 0.10) 0 2px, transparent 2px 28px), radial-gradient(circle at 72% 28%, rgba(164, 214, 178, 0.12), transparent 28%)",
+    };
+  }
+
+  return defaultTheme;
+}
+
+function WorldAtmosphere({ theme = defaultTheme }: { theme?: TerritoryTheme }) {
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-70"
+        style={{ backgroundImage: theme.pattern }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-32 border-b border-[#fff8e8]/8"
+      />
+    </>
+  );
+}
+
+function TerritoryMark({
+  large = false,
+  theme,
+}: {
+  large?: boolean;
+  theme: TerritoryTheme;
+}) {
+  const size = large ? "h-24 w-24" : "h-16 w-16";
+
+  if (theme.name === "physics") {
+    return (
+      <div
+        aria-hidden="true"
+        className={`${size} relative rounded-full border border-[var(--accent)]/45`}
+      >
+        <span className="absolute left-1/2 top-1/2 h-[1px] w-[92%] -translate-x-1/2 -translate-y-1/2 rotate-12 bg-[var(--accent)]/70" />
+        <span className="absolute left-1/2 top-1/2 h-[1px] w-[76%] -translate-x-1/2 -translate-y-1/2 -rotate-[28deg] bg-[var(--accent)]/45" />
+        <span className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--accent)]" />
+      </div>
+    );
+  }
+
+  if (theme.name === "body") {
+    return (
+      <div
+        aria-hidden="true"
+        className={`${size} relative rounded-[2rem] border border-[var(--accent)]/45`}
+      >
+        <span className="absolute left-1/2 top-3 h-[calc(100%-1.5rem)] w-[1px] -translate-x-1/2 bg-[var(--accent)]/55" />
+        <span className="absolute left-1/2 top-1/2 h-10 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--accent)]/55" />
+        <span className="absolute bottom-3 left-1/2 h-3 w-8 -translate-x-1/2 rounded-full bg-[var(--accent)]/70" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      aria-hidden="true"
+      className={`${size} relative rounded-full border border-[var(--accent)]/45`}
+    >
+      <span className="absolute left-1/2 top-1/2 h-[54%] w-[112%] -translate-x-1/2 -translate-y-1/2 rotate-[-18deg] rounded-full border border-[var(--accent)]/55" />
+      <span className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--accent)]" />
+      <span className="absolute right-2 top-3 h-2 w-2 rounded-full bg-[#fff8e8]/80" />
+    </div>
+  );
+}
+
 function HomeScreen({
   disabled,
   error,
@@ -669,8 +782,9 @@ function HomeScreen({
   const visibleTrail = trails[0] ?? null;
 
   return (
-    <main className="min-h-screen bg-[#f7f3ec] px-5 py-7 text-[#221b14]">
-      <section className="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-md flex-col">
+    <main className="relative min-h-screen overflow-hidden bg-[#101114] px-5 py-6 text-[#f8f0df]">
+      <WorldAtmosphere />
+      <section className="relative z-10 mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-5xl flex-col">
         {profile && onOpenAccount ? (
           <div className="mb-6 flex justify-end">
             <AccountChip
@@ -680,40 +794,46 @@ function HomeScreen({
             />
           </div>
         ) : null}
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
-          Did You Know?
-        </p>
-        <h1 className="mt-4 text-4xl font-semibold leading-tight tracking-normal">
-          Follow a thread of curiosity.
-        </h1>
         {visibleTrail ? (
-          <>
-            <div className="mt-6 border-y border-[#d8cdbd] py-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7b6f60]">
-                Trail
+          <div className="grid flex-1 gap-10 pb-8 pt-4 lg:grid-cols-[0.9fr_1.15fr] lg:items-center lg:gap-16">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.32em] text-[#e6a95f]">
+                Did You Know?
               </p>
-              <h2 className="mt-2 text-2xl font-semibold leading-snug">
-                {visibleTrail.title}
-              </h2>
-              <p className="mt-3 text-base leading-7 text-[#6d6255]">
-                {visibleTrail.description}
-              </p>
-              <p className="mt-4 text-sm font-semibold text-[#3b6b82]">
-                {exploredCount} of {totalCount} explored
-              </p>
+              <h1 className="mt-5 max-w-xl text-5xl font-semibold leading-[0.96] tracking-normal text-[#fff8e8] sm:text-6xl">
+                Follow a thread through the unknown.
+              </h1>
+              <div className="mt-8 max-w-md border-l border-[#e6a95f]/50 pl-5">
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8fb7c9]">
+                  Guided Trail
+                </p>
+                <h2 className="mt-3 text-2xl font-semibold text-[#fff8e8]">
+                  {visibleTrail.title}
+                </h2>
+                <p className="mt-3 text-base leading-7 text-[#c9c0ad]">
+                  {visibleTrail.description}
+                </p>
+                <p className="mt-5 inline-flex rounded-full border border-[#e6a95f]/40 bg-[#e6a95f]/10 px-3 py-1 text-sm font-semibold text-[#f2c184]">
+                  {exploredCount} of {totalCount} explored
+                </p>
+              </div>
             </div>
-            <div className="mt-6 space-y-0">
-              {visibleTrail.drops.map((summary, index) => (
-                <TrailDropRow
-                  disabled={disabled}
-                  index={index}
-                  key={summary.drop.id}
-                  onOpenDrop={onOpenDrop}
-                  summary={summary}
-                />
-              ))}
+            <div className="relative">
+              <div className="absolute left-6 top-4 h-[calc(100%-2rem)] w-px bg-gradient-to-b from-[#e6a95f]/20 via-[#8fb7c9]/50 to-[#d67f7f]/20 sm:left-8" />
+              <div className="space-y-5">
+                {visibleTrail.drops.map((summary, index) => (
+                  <TrailDropRow
+                    bridge={visibleTrail.bridges?.[index] ?? null}
+                    disabled={disabled}
+                    index={index}
+                    key={summary.drop.id}
+                    onOpenDrop={onOpenDrop}
+                    summary={summary}
+                  />
+                ))}
+              </div>
             </div>
-          </>
+          </div>
         ) : (
           <h2 className="mt-8 text-3xl font-semibold leading-tight tracking-normal">
             No challenge is available right now.
@@ -721,7 +841,7 @@ function HomeScreen({
         )}
         {showGoogleSignIn ? (
           <button
-            className="mt-6 min-h-12 w-full text-base font-semibold text-[#3b6b82] underline-offset-4 hover:underline disabled:opacity-60"
+            className="mx-auto mb-4 min-h-12 w-full max-w-md text-base font-semibold text-[#f2c184] underline-offset-4 hover:underline disabled:opacity-60"
             disabled={disabled}
             onClick={onGoogleSignIn}
             type="button"
@@ -736,66 +856,96 @@ function HomeScreen({
 }
 
 function TrailDropRow({
+  bridge,
   disabled,
   index,
   onOpenDrop,
   summary,
 }: {
+  bridge: string | null;
   disabled: boolean;
   index: number;
   onOpenDrop: (dropId: string, status: HomeDropStatus) => void;
   summary: HomeDropSummary;
 }) {
   const isCompleted = summary.status === "completed";
+  const isInProgress = summary.status === "inProgress";
   const actionLabel = getHomeActionLabel(summary);
+  const theme = getTerritoryTheme(summary.drop.topic.id);
 
   return (
-    <div className="grid grid-cols-[2.5rem_1fr] gap-3">
-      <div aria-hidden="true" className="flex flex-col items-center">
+    <div className="relative grid grid-cols-[3rem_1fr] gap-3 sm:grid-cols-[4rem_1fr]">
+      <div aria-hidden="true" className="relative z-10 flex flex-col items-center">
         <span
           className={[
-            "mt-1 flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold",
+            "mt-3 flex h-12 w-12 items-center justify-center rounded-full border text-sm font-bold shadow-[0_0_35px_rgba(255,255,255,0.08)] sm:h-14 sm:w-14",
             isCompleted
-              ? "border-[#2f6f4e] bg-[#2f6f4e] text-white"
-              : "border-[#b9ab98] bg-white text-[#6d6255]",
+              ? "border-[var(--accent)] bg-[var(--accent)] text-[#101114]"
+              : isInProgress
+                ? "border-[var(--accent)] bg-[#101114] text-[var(--accent)]"
+                : "border-[#f8f0df]/25 bg-[#17191e] text-[#c9c0ad]",
+          ].join(" ")}
+          style={{ "--accent": theme.accent } as CSSProperties}
+        >
+          {isCompleted ? "Seen" : index + 1}
+        </span>
+      </div>
+      <article
+        className={[
+          "relative overflow-hidden rounded-2xl border p-5 shadow-2xl transition",
+          isCompleted
+            ? "border-[var(--accent)]/60 bg-[#f8f0df]/95 text-[#17120d]"
+            : "border-[#f8f0df]/15 bg-[#f8f0df]/8 text-[#fff8e8] hover:border-[var(--accent)]/70",
+        ].join(" ")}
+        style={{ "--accent": theme.accent } as CSSProperties}
+      >
+        <div className="absolute right-3 top-3 opacity-80">
+          <TerritoryMark theme={theme} />
+        </div>
+        <p className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent)]">
+          {summary.drop.topic.name}
+        </p>
+        <p
+          className={[
+            "mt-1 text-sm font-semibold",
+            isCompleted ? "text-[#4e5b5f]" : "text-[#c9d6d8]",
           ].join(" ")}
         >
-          {isCompleted ? "OK" : index + 1}
-        </span>
-        <span className="mt-2 min-h-10 w-px flex-1 bg-[#d8cdbd]" />
-      </div>
-      <section
-        className={[
-          "mb-4 rounded-lg border bg-white p-4 shadow-sm",
-          isCompleted ? "border-[#b9d6c1]" : "border-[#d8cdbd]",
-        ].join(" ")}
-      >
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
-          Topic / {summary.drop.topic.name}
-        </p>
-        <p className="mt-1 text-sm font-semibold text-[#3b6b82]">
           {summary.drop.area.name}
         </p>
-        <h3 className="mt-3 text-xl font-semibold leading-snug">
+        <h3 className="mt-4 max-w-[18rem] text-2xl font-semibold leading-tight">
           {summary.drop.title}
         </h3>
-        <p className="mt-2 text-sm leading-6 text-[#6d6255]">
+        <p
+          className={[
+            "mt-3 max-w-[22rem] text-sm leading-6",
+            isCompleted ? "text-[#5d554b]" : "text-[#c9c0ad]",
+          ].join(" ")}
+        >
           {summary.drop.description}
         </p>
         <button
           className={[
-            "mt-4 min-h-12 w-full rounded-lg px-4 text-base font-semibold transition focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60",
+            "mt-5 min-h-12 w-full rounded-full px-4 text-base font-bold transition focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35 disabled:cursor-not-allowed disabled:opacity-60",
             isCompleted
-              ? "border border-[#b9d6c1] bg-[#eef8f1] text-[#173d29] hover:border-[#2f6f4e]"
-              : "bg-[#15262f] text-white shadow-sm hover:bg-[#203946]",
+              ? "border border-[#17120d]/15 bg-[#17120d] text-[#fff8e8] hover:bg-[#2a221a]"
+              : "bg-[var(--accent)] text-[#101114] shadow-[0_0_35px_rgba(255,255,255,0.08)] hover:brightness-110",
           ].join(" ")}
+          style={{ "--accent": theme.accent } as CSSProperties}
           disabled={disabled}
           onClick={() => onOpenDrop(summary.drop.id, summary.status)}
           type="button"
         >
           {disabled ? "Opening..." : actionLabel}
         </button>
-      </section>
+      </article>
+      {bridge ? (
+        <div className="col-start-2 -mt-1 pb-1 pl-1">
+          <p className="inline-flex rounded-full border border-[#f8f0df]/12 bg-[#101114]/80 px-4 py-2 text-sm font-semibold leading-6 text-[#f2c184]">
+            {bridge}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -829,29 +979,40 @@ function InviteLandingScreen({
     challenger.result.score === challenger.result.total
       ? "Can you match that?"
       : "Can you beat that?";
+  const theme = getTerritoryTheme(drop.topic.id);
 
   return (
-    <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
-      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
+    <main
+      className="relative min-h-screen overflow-hidden bg-[#101114] px-5 py-8 text-[#fff8e8]"
+      style={{ "--accent": theme.accent } as CSSProperties}
+    >
+      <WorldAtmosphere theme={theme} />
+      <section className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
+        <TerritoryMark theme={theme} large />
+        <p className="mt-8 text-xs font-bold uppercase tracking-[0.3em] text-[var(--accent)]">
           Did You Know?
         </p>
-        <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-normal">
+        <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-normal text-[#fff8e8]">
           {challenger.displayName} challenged you on {drop.topic.name}
         </h1>
-        <p className="mt-5 text-2xl font-semibold text-[#3b6b82]">
+        <p className="mt-5 text-2xl font-semibold text-[var(--accent)]">
           {challenger.displayName} got {challenger.result.score}/
           {challenger.result.total}
         </p>
-        <p className="mt-3 text-xl font-semibold">{prompt}</p>
-        <div className="mt-8 border-y border-[#d8cdbd] py-6">
-          <h2 className="text-2xl font-semibold leading-snug">{drop.title}</h2>
-          <p className="mt-3 text-base text-[#6d6255]">
+        <p className="mt-3 text-xl font-semibold text-[#e7dcc8]">{prompt}</p>
+        <div className="mt-8 rounded-3xl border border-[#fff8e8]/14 bg-[#fff8e8]/8 p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent)]">
+            {drop.area.name}
+          </p>
+          <h2 className="mt-3 text-2xl font-semibold leading-snug">
+            {drop.title}
+          </h2>
+          <p className="mt-3 text-base text-[#c9c0ad]">
             {drop.questionCount} questions. Learn something after every answer.
           </p>
         </div>
         <button
-          className="mt-8 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-8 min-h-14 w-full rounded-full bg-[var(--accent)] px-5 text-base font-bold text-[#101114] shadow-sm transition hover:brightness-110 focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={disabled}
           onClick={onStart}
           type="button"
@@ -865,7 +1026,7 @@ function InviteLandingScreen({
 }
 
 function PlayScreen({
-  areaTitle,
+  drop,
   question,
   questionIndex,
   questionCount,
@@ -876,7 +1037,7 @@ function PlayScreen({
   onSubmit,
   onContinue,
 }: {
-  areaTitle: string;
+  drop: PublicDrop;
   question: PublicQuestion;
   questionIndex: number;
   questionCount: number;
@@ -889,12 +1050,24 @@ function PlayScreen({
 }) {
   const isReveal = reveal !== null;
   const selectedOptionId = reveal?.selectedOptionId ?? committedOptionId;
+  const theme = getTerritoryTheme(drop.topic.id);
 
   return (
-    <main className="min-h-screen bg-[#f7f3ec] px-5 py-6 text-[#221b14]">
-      <section className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-md flex-col">
+    <main
+      className="relative min-h-screen overflow-hidden bg-[#101114] px-5 py-6 text-[#fff8e8]"
+      style={{ "--accent": theme.accent } as CSSProperties}
+    >
+      <WorldAtmosphere theme={theme} />
+      <section className="relative z-10 mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-2xl flex-col">
         <header className="flex items-center justify-between gap-4">
-          <p className="text-sm font-semibold text-[#6d6255]">{areaTitle}</p>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--accent)]">
+              {drop.topic.name}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-[#c9c0ad]">
+              {drop.area.name}
+            </p>
+          </div>
           <ProgressIndicator
             currentIndex={questionIndex}
             isReveal={isReveal}
@@ -903,7 +1076,10 @@ function PlayScreen({
         </header>
 
         <div className="flex flex-1 flex-col justify-center py-8">
-          <h1 className="text-3xl font-semibold leading-tight tracking-normal">
+          <div className="mb-8 flex justify-end">
+            <TerritoryMark theme={theme} large />
+          </div>
+          <h1 className="text-4xl font-semibold leading-[1.05] tracking-normal text-[#fff8e8]">
             {question.prompt}
           </h1>
 
@@ -952,7 +1128,7 @@ function ProgressIndicator({
   return (
     <div
       aria-label={`Question ${currentIndex + 1} of ${total}`}
-      className="flex items-center gap-2 text-sm font-medium text-[#6d6255]"
+      className="flex items-center gap-2 text-sm font-semibold text-[#c9c0ad]"
     >
       <div aria-hidden="true" className="flex gap-1.5">
         {Array.from({ length: total }, (_, index) => {
@@ -965,10 +1141,10 @@ function ProgressIndicator({
               className={[
                 "block h-2.5 w-2.5 rounded-full border",
                 isCompleted
-                  ? "border-[#2f6f4e] bg-[#2f6f4e]"
+                  ? "border-[var(--accent)] bg-[var(--accent)]"
                   : isCurrent
-                    ? "border-[#15262f] bg-transparent ring-2 ring-[#15262f]/20"
-                    : "border-[#c7bcad] bg-transparent",
+                    ? "border-[#fff8e8] bg-transparent ring-2 ring-[var(--accent)]/35"
+                    : "border-[#fff8e8]/25 bg-transparent",
               ].join(" ")}
               key={index}
             />
@@ -1019,14 +1195,18 @@ function AnswerButton({
   return (
     <button
       className={[
-        "min-h-16 w-full rounded-lg border px-4 py-3 text-left text-base font-medium transition focus:outline-none focus:ring-4 focus:ring-[#8fb7c9]",
+        "min-h-16 w-full rounded-2xl border px-4 py-4 text-left text-base font-semibold transition focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35",
         isReveal
           ? "cursor-default"
-          : "bg-white hover:border-[#15262f] hover:bg-[#fffaf2]",
-        isCommitted && !isReveal ? "border-[#15262f] bg-[#fffaf2]" : "",
-        isCorrect ? "border-[#2f6f4e] bg-[#eef8f1] text-[#173d29]" : "",
-        isWrongCommitted ? "border-[#b55d4a] bg-[#fff4ef] text-[#663226]" : "",
-        !isCommitted && !isCorrect ? "border-[#d8cdbd] bg-white" : "",
+          : "border-[#fff8e8]/15 bg-[#fff8e8]/8 text-[#fff8e8] hover:border-[var(--accent)]/80 hover:bg-[#fff8e8]/12",
+        isCommitted && !isReveal
+          ? "border-[var(--accent)] bg-[var(--accent)]/12"
+          : "",
+        isCorrect
+          ? "border-[#73d99f] bg-[#73d99f]/14 text-[#dfffe9]"
+          : "",
+        isWrongCommitted ? "border-[#ff9a7a] bg-[#ff9a7a]/14 text-[#ffe4db]" : "",
+        !isCommitted && !isCorrect ? "" : "",
       ].join(" ")}
       disabled={disabled}
       onClick={onClick}
@@ -1035,7 +1215,7 @@ function AnswerButton({
       <span className="flex items-center justify-between gap-3">
         <span>{label}</span>
         {status ? (
-          <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.12em]">
+          <span className="shrink-0 text-xs font-bold uppercase tracking-[0.14em] text-current/80">
             {status}
           </span>
         ) : null}
@@ -1063,15 +1243,18 @@ function RevealPanel({
   onContinue: () => void;
 }) {
   return (
-    <section className="mt-6 border-t border-[#d8cdbd] pt-5">
-      <p className="text-xl font-semibold">
+    <section className="mt-7 rounded-3xl border border-[var(--accent)]/35 bg-[#fff8e8] p-5 text-[#17120d] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+      <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#7a5a2f]">
         {isCorrect ? "You knew it." : "You didn't know."}
       </p>
-      <p className="mt-3 text-base leading-7 text-[#51483d]">
+      <h2 className="mt-3 text-2xl font-semibold leading-tight text-[#17120d]">
+        Here&apos;s the strange part.
+      </h2>
+      <p className="mt-4 text-lg leading-8 text-[#3f382f]">
         {reveal.explanation}
       </p>
       <a
-        className="mt-4 inline-flex text-sm font-medium text-[#3b6b82] underline-offset-4 hover:underline"
+        className="mt-5 inline-flex text-sm font-semibold text-[#35677b] underline-offset-4 hover:underline"
         href={reveal.source.url}
         rel="noreferrer"
         target="_blank"
@@ -1079,7 +1262,7 @@ function RevealPanel({
         Source: {reveal.source.label}
       </a>
       <button
-        className="mt-6 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-6 min-h-14 w-full rounded-full bg-[#101114] px-5 text-base font-bold text-[#fff8e8] shadow-sm transition hover:bg-[#25211c] focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={disabled}
         onClick={onContinue}
         type="button"
@@ -1128,10 +1311,16 @@ function ResultScreen({
       ? `Think someone can match your ${score}/${total}?`
       : `Think someone can beat your ${score}/${total}?`;
   const comparison = challenger ? getComparisonCopy(score, challenger) : null;
+  const theme = getTerritoryTheme(drop.topic.id);
 
   return (
-    <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
-      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
+    <main
+      className="relative min-h-screen overflow-hidden bg-[#101114] px-5 py-7 text-[#fff8e8]"
+      style={{ "--accent": theme.accent } as CSSProperties}
+    >
+      <WorldAtmosphere theme={theme} />
+      <section className="relative z-10 mx-auto grid min-h-[calc(100vh-3.5rem)] w-full max-w-5xl gap-8 lg:grid-cols-[0.95fr_1fr] lg:items-center">
+        <div>
         {profile && onOpenAccount ? (
           <div className="mb-8 flex justify-end">
             <AccountChip
@@ -1141,55 +1330,69 @@ function ResultScreen({
             />
           </div>
         ) : null}
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
-          Result
+        <p className="text-xs font-bold uppercase tracking-[0.3em] text-[var(--accent)]">
+          Explored
         </p>
-        <h1 className="mt-4 text-7xl font-semibold tracking-normal">
+        <h1 className="mt-4 text-8xl font-semibold leading-none tracking-normal text-[#fff8e8] sm:text-9xl">
           {score}/{total}
         </h1>
         {comparison ? (
           <>
-            <p className="mt-5 text-2xl font-semibold leading-8">
+            <p className="mt-6 text-3xl font-semibold leading-tight">
               {comparison.headline}
             </p>
-            <p className="mt-3 text-base text-[#6d6255]">
+            <p className="mt-3 text-base font-semibold text-[#c9c0ad]">
               You {score}/{total} | {challenger?.displayName}{" "}
               {challenger?.result.score}/{challenger?.result.total}
             </p>
           </>
         ) : (
-          <p className="mt-5 text-xl leading-8">
+          <p className="mt-6 max-w-md text-2xl leading-9 text-[#e7dcc8]">
             You knew {score} of {total} on this {drop.topic.name} challenge.
           </p>
         )}
-        <p className="mt-5 text-base font-medium text-[#6d6255]">
+        <p className="mt-6 max-w-md text-base font-semibold text-[#c9c0ad]">
           {drop.title}
         </p>
-        {trailContext?.nextDrop && onExploreNext ? (
+        </div>
+        <div>
+          <div className="rounded-[2rem] border border-[#fff8e8]/14 bg-[#fff8e8]/8 p-5 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--accent)]">
+                  {drop.topic.name}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-[#c9c0ad]">
+                  {drop.area.name}
+                </p>
+              </div>
+              <TerritoryMark theme={theme} />
+            </div>
+            {trailContext?.nextDrop && onExploreNext ? (
           <section
             className={[
-              "mt-8 rounded-lg border p-4",
+              "rounded-3xl border p-5",
               challenger
-                ? "border-[#d8cdbd] bg-white"
-                : "border-[#b9d6c1] bg-[#eef8f1]",
+                ? "border-[#fff8e8]/16 bg-[#101114]/60"
+                : "border-[var(--accent)]/50 bg-[var(--accent)]/12",
             ].join(" ")}
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent)]">
               Continue the trail
             </p>
-            <h2 className="mt-2 text-xl font-semibold leading-snug">
+            <h2 className="mt-3 text-2xl font-semibold leading-tight text-[#fff8e8]">
               {trailContext.nextDrop.title}
             </h2>
-            <p className="mt-2 text-sm leading-6 text-[#6d6255]">
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#c9c0ad]">
               {trailContext.nextDrop.topic.name} /{" "}
               {trailContext.nextDrop.area.name}
             </p>
             <button
               className={[
-                "mt-4 min-h-12 w-full rounded-lg px-4 text-base font-semibold transition focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60",
+                "mt-5 min-h-12 w-full rounded-full px-4 text-base font-bold transition focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35 disabled:cursor-not-allowed disabled:opacity-60",
                 challenger
-                  ? "border border-[#b9ab98] bg-white text-[#221b14] hover:border-[#15262f]"
-                  : "bg-[#15262f] text-white shadow-sm hover:bg-[#203946]",
+                  ? "border border-[#fff8e8]/25 bg-[#fff8e8] text-[#101114] hover:bg-white"
+                  : "bg-[var(--accent)] text-[#101114] shadow-sm hover:brightness-110",
               ].join(" ")}
               disabled={disabled}
               onClick={onExploreNext}
@@ -1198,11 +1401,20 @@ function ResultScreen({
               Explore next
             </button>
           </section>
-        ) : null}
-        <div className="mt-10">
-          <p className="text-lg font-semibold">{challengeCopy}</p>
+            ) : (
+              <section className="rounded-3xl border border-[#fff8e8]/16 bg-[#101114]/60 p-5">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent)]">
+                  Trail complete
+                </p>
+                <h2 className="mt-3 text-2xl font-semibold leading-tight">
+                  You reached the end of this thread.
+                </h2>
+              </section>
+            )}
+        <div className="mt-6">
+          <p className="text-lg font-semibold text-[#fff8e8]">{challengeCopy}</p>
           <button
-            className="mt-4 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 min-h-14 w-full rounded-full bg-[#fff8e8] px-5 text-base font-bold text-[#101114] shadow-sm transition hover:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={disabled}
             onClick={onChallenge}
             type="button"
@@ -1210,7 +1422,7 @@ function ResultScreen({
             {disabled ? "Preparing..." : "Challenge a friend"}
           </button>
           <button
-            className="mt-3 min-h-12 w-full text-base font-semibold text-[#3b6b82] underline-offset-4 hover:underline disabled:opacity-70"
+            className="mt-3 min-h-12 w-full text-base font-bold text-[#f2c184] underline-offset-4 hover:underline disabled:opacity-70"
             disabled={disabled}
             onClick={onBackToHome}
             type="button"
@@ -1218,12 +1430,12 @@ function ResultScreen({
             Back to Home
           </button>
           {!isAuthenticated ? (
-            <div className="mt-6 border-t border-[#d8cdbd] pt-5">
-              <p className="text-sm font-medium text-[#6d6255]">
+            <div className="mt-6 border-t border-[#fff8e8]/12 pt-5">
+              <p className="text-sm font-medium text-[#c9c0ad]">
                 Keep your {drop.topic.name} progress across devices.
               </p>
               <button
-                className="mt-2 text-base font-semibold text-[#3b6b82] underline-offset-4 hover:underline disabled:opacity-60"
+                className="mt-2 text-base font-semibold text-[#f2c184] underline-offset-4 hover:underline disabled:opacity-60"
                 disabled={disabled}
                 onClick={onSaveJourney}
                 type="button"
@@ -1233,14 +1445,16 @@ function ResultScreen({
             </div>
           ) : null}
           {journeySavedNotice ? (
-            <div className="mt-6 rounded-lg border border-[#b9d6c1] bg-[#eef8f1] p-4">
-              <p className="font-semibold text-[#173d29]">Journey saved</p>
-              <p className="mt-1 text-sm leading-6 text-[#356245]">
+            <div className="mt-6 rounded-2xl border border-[#73d99f]/40 bg-[#73d99f]/12 p-4">
+              <p className="font-semibold text-[#dfffe9]">Journey saved</p>
+              <p className="mt-1 text-sm leading-6 text-[#c9c0ad]">
                 Your progress is now connected to your Google account.
               </p>
             </div>
           ) : null}
           {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
+        </div>
+          </div>
         </div>
       </section>
     </main>
@@ -1267,9 +1481,9 @@ function AuthSheet({
 
   return (
     <Sheet onClose={onClose} title="Create your profile">
-      <p className="text-base leading-7 text-[#51483d]">{copy}</p>
+      <p className="text-base leading-7 text-[#c9c0ad]">{copy}</p>
       <button
-        className="mt-5 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-5 min-h-14 w-full rounded-full bg-[#fff8e8] px-5 text-base font-bold text-[#101114] shadow-sm transition hover:bg-white focus:outline-none focus:ring-4 focus:ring-[#f2c184]/35 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={disabled}
         onClick={onContinue}
         type="button"
@@ -1292,7 +1506,7 @@ function AccountChip({
 }) {
   return (
     <button
-      className="inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border border-[#d8cdbd] bg-white px-4 text-sm font-semibold text-[#221b14] shadow-sm hover:border-[#15262f] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border border-[#fff8e8]/18 bg-[#fff8e8]/10 px-4 text-sm font-bold text-[#fff8e8] shadow-sm backdrop-blur hover:border-[#f2c184]/60 focus:outline-none focus:ring-4 focus:ring-[#f2c184]/35 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={disabled}
       onClick={onClick}
       type="button"
@@ -1322,15 +1536,15 @@ function AccountSheet({
   return (
     <Sheet onClose={onClose} title={profileName}>
       {email ? (
-        <p className="break-words text-sm font-medium text-[#6d6255]">
+        <p className="break-words text-sm font-medium text-[#c9c0ad]">
           {email}
         </p>
       ) : null}
-      <p className="mt-4 text-base leading-7 text-[#51483d]">
+      <p className="mt-4 text-base leading-7 text-[#c9c0ad]">
         Your progress is saved to your profile.
       </p>
       <button
-        className="mt-5 min-h-12 w-full rounded-lg border border-[#b9ab98] bg-white px-5 text-base font-semibold text-[#221b14] shadow-sm transition hover:border-[#15262f] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-5 min-h-12 w-full rounded-full border border-[#fff8e8]/25 bg-[#fff8e8] px-5 text-base font-bold text-[#101114] shadow-sm transition hover:bg-white focus:outline-none focus:ring-4 focus:ring-[#f2c184]/35 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={disabled}
         onClick={onSignOut}
         type="button"
@@ -1364,11 +1578,11 @@ function ShareChoiceSheet({
 }) {
   return (
     <Sheet onClose={onClose} title={`Challenge as ${displayName}`}>
-      <p className="text-sm font-medium text-[#6d6255]">
+      <p className="text-sm font-medium text-[#c9c0ad]">
         Your score: {score}/{total} - {topicTitle}
       </p>
       <button
-        className="mt-5 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-5 min-h-14 w-full rounded-full bg-[#fff8e8] px-5 text-base font-bold text-[#101114] shadow-sm transition hover:bg-white focus:outline-none focus:ring-4 focus:ring-[#f2c184]/35 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={disabled}
         onClick={onWhatsApp}
         type="button"
@@ -1376,7 +1590,7 @@ function ShareChoiceSheet({
         Challenge on WhatsApp
       </button>
       <button
-        className="mt-3 min-h-14 w-full rounded-lg border border-[#b9ab98] bg-white px-5 text-base font-semibold text-[#221b14] shadow-sm transition hover:border-[#15262f] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-3 min-h-14 w-full rounded-full border border-[#fff8e8]/25 bg-transparent px-5 text-base font-bold text-[#fff8e8] shadow-sm transition hover:border-[#fff8e8]/60 focus:outline-none focus:ring-4 focus:ring-[#f2c184]/35 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={disabled}
         onClick={onCopy}
         type="button"
@@ -1384,7 +1598,7 @@ function ShareChoiceSheet({
         Copy Invite
       </button>
       {copyStatus ? (
-        <p className="mt-3 text-sm font-semibold text-[#2f6f4e]">
+        <p className="mt-3 text-sm font-semibold text-[#a4d6b2]">
           {copyStatus}
         </p>
       ) : null}
@@ -1402,10 +1616,10 @@ function Sheet({
   title: string;
 }) {
   return (
-    <div className="fixed inset-0 z-10 flex items-end bg-black/30 px-4 pb-4">
+    <div className="fixed inset-0 z-10 flex items-end bg-black/60 px-4 pb-4 backdrop-blur-sm">
       <section
         aria-labelledby="sheet-title"
-        className="mx-auto w-full max-w-md rounded-lg bg-[#f7f3ec] p-5 text-[#221b14] shadow-xl"
+        className="mx-auto w-full max-w-md rounded-3xl border border-[#fff8e8]/14 bg-[#15161a] p-5 text-[#fff8e8] shadow-2xl"
         role="dialog"
       >
         <div className="flex items-center justify-between gap-4">
@@ -1413,7 +1627,7 @@ function Sheet({
             {title}
           </h2>
           <button
-            className="min-h-10 min-w-10 rounded-full text-xl leading-none text-[#6d6255] hover:bg-[#ebe2d5] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9]"
+            className="min-h-10 min-w-10 rounded-full text-xl leading-none text-[#c9c0ad] hover:bg-[#fff8e8]/10 focus:outline-none focus:ring-4 focus:ring-[#f2c184]/35"
             onClick={onClose}
             type="button"
           >
@@ -1429,16 +1643,17 @@ function Sheet({
 
 function InvalidInviteScreen() {
   return (
-    <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
-      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
+    <main className="relative min-h-screen overflow-hidden bg-[#101114] px-5 py-8 text-[#fff8e8]">
+      <WorldAtmosphere />
+      <section className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
+        <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#f2c184]">
           Did You Know?
         </p>
         <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-normal">
           This challenge link isn&apos;t available.
         </h1>
         <Link
-          className="mt-8 flex min-h-14 w-full items-center justify-center rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9]"
+          className="mt-8 flex min-h-14 w-full items-center justify-center rounded-full bg-[#f2c184] px-5 text-base font-bold text-[#101114] shadow-sm transition hover:brightness-110 focus:outline-none focus:ring-4 focus:ring-[#f2c184]/35"
           href="/"
         >
           Play the latest challenge
@@ -1450,8 +1665,11 @@ function InvalidInviteScreen() {
 
 function ShellLoading() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f7f3ec] px-5 text-[#221b14]">
-      <p className="text-sm font-medium text-[#6d6255]">Loading...</p>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#101114] px-5 text-[#fff8e8]">
+      <WorldAtmosphere />
+      <p className="relative z-10 text-sm font-semibold uppercase tracking-[0.24em] text-[#f2c184]">
+        Loading...
+      </p>
     </main>
   );
 }
@@ -1544,6 +1762,7 @@ type HomeTrail = {
   id: string;
   title: string;
   description: string;
+  bridges?: string[];
   drops: HomeDropSummary[];
 };
 
@@ -1552,6 +1771,7 @@ type TrailContext = {
     id: string;
     title: string;
     description: string;
+    bridges?: string[];
   };
   position: number;
   total: number;

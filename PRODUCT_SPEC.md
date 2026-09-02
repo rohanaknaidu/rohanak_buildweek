@@ -2883,7 +2883,76 @@ Do not implement in M3:
 
 ---
 
-# 32. Next Section To Define
+# 32. M3.1 - Make The World Feel Real
+
+## CURRENT DIRECTION
+
+M3.1 is a focused visual product-expression milestone.
+
+It exists because M3 established Guided Exploration structurally, but the product must also visually communicate:
+
+* Wonder;
+* Journey;
+* Discovery.
+
+Goal:
+
+`Make Guided Exploration visually and emotionally legible without changing the underlying product model.`
+
+M3.1 should make Did You Know? feel less like a clean quiz form and more like a connected world of surprising knowledge.
+
+## M3.1 In Scope
+
+M3.1 may change:
+
+* Home / Trail visual composition;
+* Trail bridge-question presentation;
+* territory-specific visual identity for current Topics;
+* Question surface atmosphere and hierarchy;
+* Reveal hierarchy so the insight feels like the payoff;
+* Result visual treatment so it feels like completion, social object, and doorway onward;
+* account / share sheet styling only enough to fit the new visual system;
+* loading / empty / invalid-link styling only enough to avoid the old visual system.
+
+Trail bridge curiosities are content, not product-engine behavior.
+
+They should live in source-controlled content data and be rendered generically.
+
+## M3.1 Out Of Scope
+
+Do not change:
+
+* Attempt / replay model;
+* auth;
+* Profile ownership;
+* Invite semantics;
+* Convex schema;
+* Trail semantics;
+* scoring;
+* content architecture;
+* social logic.
+
+Do not add:
+
+* Reset;
+* replay;
+* XP;
+* mastery;
+* streaks;
+* leaderboard;
+* Knowledge Map;
+* social graph;
+* recommendation system;
+* AI generation;
+* CMS / admin infrastructure.
+
+Known product gap:
+
+`Completed Drops cannot currently be replayed. Do not implement destructive reset. Design multi-attempt replay deliberately later.`
+
+---
+
+# 33. Next Section To Define
 
 ## TODO - Concrete V1 User Journeys
 

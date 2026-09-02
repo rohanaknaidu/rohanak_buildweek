@@ -3,6 +3,7 @@ export type Trail = {
   title: string;
   description: string;
   dropIds: string[];
+  bridges: string[];
 };
 
 export const trails = [
@@ -15,6 +16,10 @@ export const trails = [
       "space-solar-system-strange-001",
       "physics-gravity-strange-001",
       "body-spaceflight-changes-001",
+    ],
+    bridges: [
+      "What keeps all these strange worlds moving?",
+      "If astronauts are always falling, what does that do to their bodies?",
     ],
   },
 ] as const satisfies Trail[];
