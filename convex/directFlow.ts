@@ -5,10 +5,16 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   getDrop,
+  getLiveDrops,
   getQuestionById,
+  getTrailContextForDrop,
+  getTrails,
   toPublicDrop,
   toPublicQuestion,
+  toPublicTrail,
+  toPublicTrailContext,
 } from "../content/registry";
+import type { Drop } from "../content/registry";
 import { getDefaultPlayableDrop } from "../product/dropSelection";
 
 type AnswerDoc = Doc<"answers">;
@@ -258,10 +264,7 @@ function makeRevealPayload(answer: AnswerDoc) {
     correctOptionId: question.correctOptionId,
     correct: answer.correct,
     explanation: question.reveal.explanation,
-    source: {
-      label: question.reveal.sourceLabel,
-      url: question.reveal.sourceUrl,
-    },
+    source: question.reveal.source,
   };
 }
 
@@ -386,6 +389,7 @@ async function getFlowPayload({
       attemptState: null,
       invite: null,
       challenger: null,
+      trailContext: null,
     };
   }
 
@@ -406,6 +410,7 @@ async function getFlowPayload({
       attemptState: null,
       invite: invite ? { id: invite._id } : null,
       challenger,
+      trailContext: toPublicTrailContext(getTrailContextForDrop(drop.id)),
     };
   }
 
@@ -418,17 +423,19 @@ async function getFlowPayload({
     attemptState: getAttemptPayload(attempt, answers),
     invite: invite ? { id: invite._id } : null,
     challenger,
+    trailContext: toPublicTrailContext(getTrailContextForDrop(drop.id)),
   };
 }
 
 export const getFlowState = query({
   args: {
     playerId: v.string(),
+    dropId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const drop = getDefaultPlayableDrop();
+    const drop = args.dropId ? getDrop(args.dropId) : getDefaultPlayableDrop();
 
-    if (!drop) {
+    if (!drop || drop.status !== "live") {
       return {
         drop: null,
         player: null,
@@ -436,6 +443,7 @@ export const getFlowState = query({
         attemptState: null,
         invite: null,
         challenger: null,
+        trailContext: null,
       };
     }
 
@@ -446,6 +454,86 @@ export const getFlowState = query({
       invite: null,
       challenger: null,
     });
+  },
+});
+
+export const getHomeState = query({
+  args: {
+    playerId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const player = await getPlayerByLocalId(ctx, args.playerId);
+    const profile = await getCurrentProfile(ctx);
+    const liveDropIds = new Set(getLiveDrops().map((drop) => drop.id));
+    const trailSummaries = await Promise.all(
+      getTrails().map(async (trail) => {
+        const dropSummaries = await Promise.all(
+          trail.dropIds
+            .map((dropId) => getDrop(dropId))
+            .filter(
+              (drop): drop is Drop => drop !== null && liveDropIds.has(drop.id),
+            )
+            .map(async (drop) => {
+              const attempt = await getCanonicalAttempt({
+                ctx,
+                playerId: args.playerId,
+                dropId: drop.id,
+                profile,
+              });
+              const total = drop.questions.length;
+
+              if (!attempt) {
+                return {
+                  drop: toPublicDrop(drop),
+                  status: "unstarted" as const,
+                  currentQuestionNumber: null,
+                  score: null,
+                  total,
+                };
+              }
+
+              const answers = await getAnswers(ctx, attempt._id);
+
+              if (attempt.stage === "result") {
+                return {
+                  drop: toPublicDrop(drop),
+                  status: "completed" as const,
+                  currentQuestionNumber: null,
+                  score: getScore(answers),
+                  total,
+                };
+              }
+
+              return {
+                drop: toPublicDrop(drop),
+                status: "inProgress" as const,
+                currentQuestionNumber: Math.min(
+                  attempt.currentQuestionIndex + 1,
+                  total,
+                ),
+                score: null,
+                total,
+              };
+            }),
+        );
+
+        return {
+          ...toPublicTrail(trail),
+          drops: dropSummaries,
+        };
+      }),
+    );
+    const dropSummaries = trailSummaries.flatMap((trail) => trail.drops);
+
+    return {
+      trails: trailSummaries,
+      exploredCount: dropSummaries.filter(
+        (summary) => summary.status === "completed",
+      ).length,
+      totalCount: dropSummaries.length,
+      player: getPublicPlayer(player),
+      profile: getPublicProfile(profile),
+    };
   },
 });
 
@@ -502,6 +590,7 @@ export const startAttempt = mutation({
   args: {
     playerId: v.string(),
     inviteId: v.optional(v.string()),
+    dropId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const inviteContext = args.inviteId
@@ -512,7 +601,13 @@ export const startAttempt = mutation({
       throw new Error("This challenge link is not available.");
     }
 
-    const drop = inviteContext?.drop ?? getDefaultPlayableDrop();
+    const requestedDrop = args.dropId ? getDrop(args.dropId) : null;
+
+    if (args.dropId && (!requestedDrop || requestedDrop.status !== "live")) {
+      throw new Error("This Drop is not available.");
+    }
+
+    const drop = inviteContext?.drop ?? requestedDrop ?? getDefaultPlayableDrop();
 
     if (!drop) {
       throw new Error("No live Drop is available.");

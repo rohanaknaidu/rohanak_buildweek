@@ -1,19 +1,28 @@
 import { areas } from "./areas";
+import { bodySpaceflightChanges001 } from "./drops/body-spaceflight-changes-001";
+import { physicsGravityStrange001 } from "./drops/physics-gravity-strange-001";
 import { spaceSolarSystemStrange001 } from "./drops/space-solar-system-strange-001";
+import { trails } from "./trails";
 import { topics } from "./topics";
 
 export type DropStatus = "draft" | "live";
+
+export type Source = {
+  label: string;
+  url: string;
+};
+
+export type Reveal = {
+  explanation: string;
+  source: Source;
+};
 
 export type Question = {
   id: string;
   prompt: string;
   options: AnswerOption[];
   correctOptionId: string;
-  reveal: {
-    explanation: string;
-    sourceLabel: string;
-    sourceUrl: string;
-  };
+  reveal: Reveal;
 };
 
 export type AnswerOption = {
@@ -45,7 +54,26 @@ export type Drop = DropContent & {
   };
 };
 
-const dropContent = [spaceSolarSystemStrange001] as const satisfies DropContent[];
+export type Trail = {
+  id: string;
+  title: string;
+  description: string;
+  dropIds: string[];
+};
+
+export type TrailContext = {
+  trail: Trail;
+  position: number;
+  total: number;
+  previousDrop: Drop | null;
+  nextDrop: Drop | null;
+};
+
+const dropContent = [
+  spaceSolarSystemStrange001,
+  physicsGravityStrange001,
+  bodySpaceflightChanges001,
+] as const satisfies DropContent[];
 
 export const drops = dropContent.map(resolveDrop);
 
@@ -64,6 +92,30 @@ export function getDropsForTopic(topicId: string) {
   return drops.filter((drop) => drop.topicId === topicId);
 }
 
+export function getTrails() {
+  return trails.map(resolveTrail);
+}
+
+export function getTrailContextForDrop(dropId: string) {
+  for (const trail of getTrails()) {
+    const index = trail.dropIds.indexOf(dropId);
+
+    if (index === -1) {
+      continue;
+    }
+
+    return {
+      trail,
+      position: index + 1,
+      total: trail.dropIds.length,
+      previousDrop: getLiveTrailNeighbor(trail.dropIds, index, -1),
+      nextDrop: getLiveTrailNeighbor(trail.dropIds, index, 1),
+    };
+  }
+
+  return null;
+}
+
 export function getQuestionById(drop: Drop, questionId: string) {
   return drop.questions.find((question) => question.id === questionId) ?? null;
 }
@@ -76,6 +128,28 @@ export function toPublicDrop(drop: Drop) {
     title: drop.title,
     description: drop.description,
     questionCount: drop.questions.length,
+  };
+}
+
+export function toPublicTrail(trail: Trail) {
+  return {
+    id: trail.id,
+    title: trail.title,
+    description: trail.description,
+  };
+}
+
+export function toPublicTrailContext(context: TrailContext | null) {
+  if (!context) {
+    return null;
+  }
+
+  return {
+    trail: toPublicTrail(context.trail),
+    position: context.position,
+    total: context.total,
+    previousDrop: context.previousDrop ? toPublicDrop(context.previousDrop) : null,
+    nextDrop: context.nextDrop ? toPublicDrop(context.nextDrop) : null,
   };
 }
 
@@ -110,4 +184,26 @@ function resolveDrop(drop: DropContent): Drop {
     topic,
     area,
   };
+}
+
+function resolveTrail(trail: Trail): Trail {
+  for (const dropId of trail.dropIds) {
+    const drop = getDrop(dropId);
+
+    if (!drop) {
+      throw new Error(`Trail "${trail.id}" references missing Drop "${dropId}".`);
+    }
+  }
+
+  return trail;
+}
+
+function getLiveTrailNeighbor(
+  dropIds: readonly string[],
+  currentIndex: number,
+  direction: -1 | 1,
+) {
+  const drop = getDrop(dropIds[currentIndex + direction]);
+
+  return drop?.status === "live" ? drop : null;
 }

@@ -22,8 +22,10 @@ export const spaceSolarSystemStrange001 = {
       reveal: {
         explanation:
           "Jupiter is enormous, but it spins incredibly fast. One day there takes only about 9.9 Earth hours, making it the shortest planetary day in our solar system.",
-        sourceLabel: "NASA Jupiter Facts",
-        sourceUrl: "https://science.nasa.gov/jupiter/jupiter-facts/",
+        source: {
+          label: "NASA Jupiter Facts",
+          url: "https://science.nasa.gov/jupiter/jupiter-facts/",
+        },
       },
     },
     {
@@ -39,8 +41,10 @@ export const spaceSolarSystemStrange001 = {
       reveal: {
         explanation:
           "Venus rotates so slowly that one spin takes 243 Earth days. Its trip around the Sun takes about 225 Earth days, so a Venus day is longer than a Venus year.",
-        sourceLabel: "NASA Venus Facts",
-        sourceUrl: "https://science.nasa.gov/venus/venus-facts/",
+        source: {
+          label: "NASA Venus Facts",
+          url: "https://science.nasa.gov/venus/venus-facts/",
+        },
       },
     },
     {
@@ -57,9 +61,10 @@ export const spaceSolarSystemStrange001 = {
       reveal: {
         explanation:
           "Uranus is tilted by about 98 degrees compared with its orbit. Scientists think a huge collision early in its history may have knocked it sideways.",
-        sourceLabel: "NASA Gravity Assist",
-        sourceUrl:
-          "https://www.nasa.gov/podcasts/gravity-assist/gravity-assist-ice-giants-uranus-neptune-with-amy-simon/",
+        source: {
+          label: "NASA Gravity Assist",
+          url: "https://www.nasa.gov/podcasts/gravity-assist/gravity-assist-ice-giants-uranus-neptune-with-amy-simon/",
+        },
       },
     },
     {
@@ -75,9 +80,10 @@ export const spaceSolarSystemStrange001 = {
       reveal: {
         explanation:
           "Olympus Mons is on Mars, and it is vast. NASA describes it as rising about 17 miles, or 27 kilometers, above the surrounding landscape.",
-        sourceLabel: "NASA Mars Odyssey",
-        sourceUrl:
-          "https://www.nasa.gov/missions/odyssey/nasas-mars-odyssey-captures-huge-volcano-nears-100000-orbits/",
+        source: {
+          label: "NASA Mars Odyssey",
+          url: "https://www.nasa.gov/missions/odyssey/nasas-mars-odyssey-captures-huge-volcano-nears-100000-orbits/",
+        },
       },
     },
     {
@@ -94,8 +100,10 @@ export const spaceSolarSystemStrange001 = {
       reveal: {
         explanation:
           "Saturn is the least dense planet in the solar system. NASA notes that it is the only planet with an average density lower than water, so the famous floating idea is directionally true.",
-        sourceLabel: "NASA Cassini FAQ",
-        sourceUrl: "https://science.nasa.gov/mission/cassini/faq/",
+        source: {
+          label: "NASA Cassini FAQ",
+          url: "https://science.nasa.gov/mission/cassini/faq/",
+        },
       },
     },
   ],

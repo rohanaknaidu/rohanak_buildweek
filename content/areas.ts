@@ -10,6 +10,16 @@ export const areas = [
     topicId: "space",
     name: "Solar System",
   },
+  {
+    id: "gravity",
+    topicId: "physics",
+    name: "Gravity",
+  },
+  {
+    id: "spaceflight",
+    topicId: "body",
+    name: "Spaceflight",
+  },
 ] as const satisfies Area[];
 
 export type AreaId = (typeof areas)[number]["id"];

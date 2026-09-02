@@ -17,12 +17,13 @@ import { api } from "../../convex/_generated/api";
 
 type PlayerIdState = "loading" | string;
 type ShareState = "closed" | "auth" | "choices";
-type PostResultView = "home" | "result";
 type PendingAuthAction = "challenge" | "save";
 
 const playerIdStorageKey = "did-you-know.playerId";
 const pendingAuthActionStorageKey = "did-you-know.pendingAuthAction";
+const activeDropStorageKey = "did-you-know.activeDropId";
 const authActionSearchParam = "dykAuthAction";
+const dropIdSearchParam = "dykDropId";
 const playerIdListeners = new Set<() => void>();
 
 function subscribeToPlayerId(listener: () => void) {
@@ -78,26 +79,46 @@ function getPendingAuthAction() {
   return value === "challenge" || value === "save" ? value : null;
 }
 
+function getPendingDropId() {
+  const searchValue = new URLSearchParams(window.location.search).get(
+    dropIdSearchParam,
+  );
+  return searchValue ?? window.localStorage.getItem(activeDropStorageKey);
+}
+
 function makeAuthReturnPath({
   action,
+  dropId,
   inviteId,
 }: {
   action: PendingAuthAction;
+  dropId?: string | null;
   inviteId?: string;
 }) {
   const path = inviteId ? `/i/${inviteId}` : "/";
-  return `${path}?${authActionSearchParam}=${action}`;
+  const params = new URLSearchParams({ [authActionSearchParam]: action });
+
+  if (dropId) {
+    params.set(dropIdSearchParam, dropId);
+  }
+
+  return `${path}?${params.toString()}`;
 }
 
 function clearAuthReturnIntent() {
   window.localStorage.removeItem(pendingAuthActionStorageKey);
+  window.localStorage.removeItem(activeDropStorageKey);
 
   const url = new URL(window.location.href);
-  if (!url.searchParams.has(authActionSearchParam)) {
+  if (
+    !url.searchParams.has(authActionSearchParam) &&
+    !url.searchParams.has(dropIdSearchParam)
+  ) {
     return;
   }
 
   url.searchParams.delete(authActionSearchParam);
+  url.searchParams.delete(dropIdSearchParam);
   window.history.replaceState(null, "", `${url.pathname}${url.search}`);
 }
 
@@ -133,9 +154,16 @@ function DropFlowInner({
 }) {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const { signIn, signOut } = useAuthActions();
+  const [activeDropId, setActiveDropId] = useState<string | null>(() =>
+    inviteId ? null : getPendingDropId(),
+  );
+  const homeState = useQuery(
+    api.directFlow.getHomeState,
+    inviteId ? "skip" : { playerId },
+  );
   const directFlowState = useQuery(
     api.directFlow.getFlowState,
-    inviteId ? "skip" : { playerId },
+    !inviteId && activeDropId ? { playerId, dropId: activeDropId } : "skip",
   );
   const inviteFlowState = useQuery(
     api.directFlow.getInviteFlowState,
@@ -156,7 +184,6 @@ function DropFlowInner({
   const [shareState, setShareState] = useState<ShareState>("closed");
   const [authPurpose, setAuthPurpose] =
     useState<PendingAuthAction>("challenge");
-  const [postResultView, setPostResultView] = useState<PostResultView>("home");
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [shareDisplayName, setShareDisplayName] = useState<string | null>(null);
   const [claimedProfile, setClaimedProfile] = useState<Profile | null>(null);
@@ -199,10 +226,9 @@ function DropFlowInner({
             setShareDisplayName(claimResult.profile.displayName);
             await ensureInvite();
             setShareState("choices");
-            setPostResultView("result");
           } else {
             setShareState("closed");
-            setPostResultView("home");
+            setActiveDropId(null);
           }
         } catch {
           setError("Could not finish sign-in. Please try again.");
@@ -226,7 +252,8 @@ function DropFlowInner({
         setClaimedProfile(null);
         setJourneySavedNotice(false);
         setIsAccountOpen(false);
-        setPostResultView("home");
+        setActiveDropId(null);
+        window.localStorage.removeItem(activeDropStorageKey);
         onPlayerIdRotated();
       } catch {
         setError("Could not sign out. Please try again.");
@@ -235,12 +262,16 @@ function DropFlowInner({
   };
 
   useEffect(() => {
-    if (authLoading || !isAuthenticated || !flowState) {
+    if (authLoading || !isAuthenticated) {
       return;
     }
 
     const pendingAction = getPendingAuthAction();
     if (!pendingAction) {
+      return;
+    }
+
+    if (pendingAction === "challenge" && !flowState) {
       return;
     }
 
@@ -259,7 +290,71 @@ function DropFlowInner({
     playerId,
   ]);
 
-  if (flowState === undefined || authLoading) {
+  if (authLoading) {
+    return <ShellLoading />;
+  }
+
+  if (!inviteId && !activeDropId) {
+    if (homeState === undefined) {
+      return <ShellLoading />;
+    }
+
+    const profile = homeState.profile ?? claimedProfile;
+
+    return (
+      <>
+        <HomeScreen
+          disabled={isPending}
+          error={error}
+          exploredCount={homeState.exploredCount}
+          onGoogleSignIn={() => openAuthSheet("save")}
+          onOpenAccount={profile ? () => setIsAccountOpen(true) : undefined}
+          onOpenDrop={(dropId, status) => {
+            setError(null);
+            setActiveDropId(dropId);
+            window.localStorage.setItem(activeDropStorageKey, dropId);
+            if (status === "completed") {
+              return;
+            }
+
+            startTransition(async () => {
+              try {
+                await startAttempt({ playerId, dropId });
+              } catch {
+                setActiveDropId(null);
+                window.localStorage.removeItem(activeDropStorageKey);
+                setError("Could not start the challenge. Please try again.");
+              }
+            });
+          }}
+          profile={profile}
+          showGoogleSignIn={profile === null}
+          totalCount={homeState.totalCount}
+          trails={homeState.trails}
+        />
+        {isAccountOpen && profile ? (
+          <AccountSheet
+            disabled={isPending}
+            email={profile.email}
+            onClose={() => setIsAccountOpen(false)}
+            onSignOut={handleSignOut}
+            profileName={profile.displayName}
+          />
+        ) : null}
+        {shareState === "auth" ? (
+          <AuthSheet
+            disabled={isPending}
+            error={error}
+            onClose={() => setShareState("closed")}
+            onContinue={() => beginGoogleAuth(authPurpose)}
+            purpose={authPurpose}
+          />
+        ) : null}
+      </>
+    );
+  }
+
+  if (flowState === undefined) {
     return <ShellLoading />;
   }
 
@@ -290,34 +385,45 @@ function DropFlowInner({
     setError(null);
     startTransition(async () => {
       try {
-        await startAttempt({ playerId, inviteId });
+        await startAttempt({
+          playerId,
+          inviteId,
+          dropId: inviteId ? undefined : activeDropId ?? undefined,
+        });
       } catch {
         setError("Could not start the challenge. Please try again.");
       }
     });
   };
 
-  const beginGoogleAuth = (action: PendingAuthAction) => {
+  function beginGoogleAuth(action: PendingAuthAction) {
     setError(null);
     window.localStorage.setItem(pendingAuthActionStorageKey, action);
+    if (!inviteId && flowState?.drop) {
+      window.localStorage.setItem(activeDropStorageKey, flowState.drop.id);
+    }
     startTransition(async () => {
       try {
         await signIn("google", {
-          redirectTo: makeAuthReturnPath({ action, inviteId }),
+          redirectTo: makeAuthReturnPath({
+            action,
+            dropId: inviteId ? null : flowState?.drop?.id,
+            inviteId,
+          }),
         });
       } catch {
         setError("Could not start Google sign-in. Please try again.");
       }
     });
-  };
+  }
 
-  const openAuthSheet = (action: PendingAuthAction) => {
+  function openAuthSheet(action: PendingAuthAction) {
     setAuthPurpose(action);
     setShareState("auth");
     setCopyStatus(null);
     setShareMessage(null);
     setError(null);
-  };
+  }
 
   const openShareChoices = () => {
     setError(null);
@@ -389,38 +495,7 @@ function DropFlowInner({
       );
     }
 
-    return (
-      <>
-        <HomeScreen
-          disabled={isPending}
-          drop={flowState.drop}
-          error={error}
-          onGoogleSignIn={() => openAuthSheet("save")}
-          onOpenAccount={profile ? () => setIsAccountOpen(true) : undefined}
-          onPlay={handleStart}
-          profile={profile}
-          showGoogleSignIn={profile === null}
-        />
-        {isAccountOpen && profile ? (
-          <AccountSheet
-            disabled={isPending}
-            email={profile.email}
-            onClose={() => setIsAccountOpen(false)}
-            onSignOut={handleSignOut}
-            profileName={profile.displayName}
-          />
-        ) : null}
-        {shareState === "auth" ? (
-          <AuthSheet
-            disabled={isPending}
-            error={error}
-            onClose={() => setShareState("closed")}
-            onContinue={() => beginGoogleAuth(authPurpose)}
-            purpose={authPurpose}
-          />
-        ) : null}
-      </>
-    );
+    return <ShellLoading />;
   }
 
   if (attemptState.attempt.stage === "result") {
@@ -453,35 +528,6 @@ function DropFlowInner({
       </>
     );
 
-    if (!inviteId && postResultView === "home") {
-      return (
-        <>
-          <CaughtUpHomeScreen
-            disabled={isPending}
-            drop={flowState.drop}
-            isAuthenticated={profile !== null}
-            journeySavedNotice={journeySavedNotice}
-            onOpenAccount={profile ? () => setIsAccountOpen(true) : undefined}
-            onSaveJourney={saveJourney}
-            onViewResult={() => setPostResultView("result")}
-            profile={profile}
-            score={attemptState.result?.score ?? 0}
-            total={flowState.drop.questionCount}
-          />
-          {isAccountOpen && profile ? (
-            <AccountSheet
-              disabled={isPending}
-              email={profile.email}
-              onClose={() => setIsAccountOpen(false)}
-              onSignOut={handleSignOut}
-              profileName={profile.displayName}
-            />
-          ) : null}
-          {overlays}
-        </>
-      );
-    }
-
     return (
       <>
         <ResultScreen
@@ -491,12 +537,39 @@ function DropFlowInner({
           error={error}
           isAuthenticated={profile !== null}
           journeySavedNotice={journeySavedNotice}
-          onBackToHome={() => setPostResultView("home")}
+          onBackToHome={() => {
+            setActiveDropId(null);
+            window.localStorage.removeItem(activeDropStorageKey);
+          }}
           onChallenge={openShareChoices}
+          onExploreNext={
+            flowState.trailContext?.nextDrop
+              ? () => {
+                  const nextDropId = flowState.trailContext?.nextDrop?.id;
+                  if (!nextDropId) {
+                    return;
+                  }
+                  setError(null);
+                  setShareState("closed");
+                  setActiveDropId(nextDropId);
+                  window.localStorage.setItem(activeDropStorageKey, nextDropId);
+                  startTransition(async () => {
+                    try {
+                      await startAttempt({ playerId, dropId: nextDropId });
+                    } catch {
+                      setError(
+                        "Could not start the next challenge. Please try again.",
+                      );
+                    }
+                  });
+                }
+              : undefined
+          }
           onOpenAccount={profile ? () => setIsAccountOpen(true) : undefined}
           onSaveJourney={saveJourney}
           profile={profile}
           score={attemptState.result?.score ?? 0}
+          trailContext={flowState.trailContext}
           total={flowState.drop.questionCount}
         />
         {isAccountOpen && profile ? (
@@ -531,9 +604,6 @@ function DropFlowInner({
       error={error}
       onContinue={() => {
         setError(null);
-        if (attemptState.attempt.currentQuestionIndex === flowState.drop.questionCount - 1) {
-          setPostResultView("result");
-        }
         startTransition(async () => {
           try {
             await continueAfterReveal({
@@ -574,29 +644,35 @@ function DropFlowInner({
 }
 
 function HomeScreen({
-  drop,
   disabled,
   error,
+  exploredCount,
   onGoogleSignIn,
   onOpenAccount,
-  onPlay,
+  onOpenDrop,
   profile,
   showGoogleSignIn,
+  totalCount,
+  trails,
 }: {
-  drop: PublicDrop;
   disabled: boolean;
   error: string | null;
+  exploredCount: number;
   onGoogleSignIn: () => void;
   onOpenAccount?: () => void;
-  onPlay: () => void;
+  onOpenDrop: (dropId: string, status: HomeDropStatus) => void;
   profile: Profile | null;
   showGoogleSignIn: boolean;
+  totalCount: number;
+  trails: HomeTrail[];
 }) {
+  const visibleTrail = trails[0] ?? null;
+
   return (
-    <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
-      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
+    <main className="min-h-screen bg-[#f7f3ec] px-5 py-7 text-[#221b14]">
+      <section className="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-md flex-col">
         {profile && onOpenAccount ? (
-          <div className="mb-8 flex justify-end">
+          <div className="mb-6 flex justify-end">
             <AccountChip
               disabled={disabled}
               onClick={onOpenAccount}
@@ -607,32 +683,45 @@ function HomeScreen({
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
           Did You Know?
         </p>
-        <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-normal">
-          Test what you know. Then see if your friends know better.
+        <h1 className="mt-4 text-4xl font-semibold leading-tight tracking-normal">
+          Follow a thread of curiosity.
         </h1>
-        <div className="mt-8 border-y border-[#d8cdbd] py-6">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#3b6b82]">
-            <span className="block text-xs text-[#7b6f60]">Topic</span>
-            <span>{drop.topic.name}</span>
-          </p>
-          <h2 className="mt-3 text-2xl font-semibold leading-snug">
-            {drop.title}
+        {visibleTrail ? (
+          <>
+            <div className="mt-6 border-y border-[#d8cdbd] py-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7b6f60]">
+                Trail
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold leading-snug">
+                {visibleTrail.title}
+              </h2>
+              <p className="mt-3 text-base leading-7 text-[#6d6255]">
+                {visibleTrail.description}
+              </p>
+              <p className="mt-4 text-sm font-semibold text-[#3b6b82]">
+                {exploredCount} of {totalCount} explored
+              </p>
+            </div>
+            <div className="mt-6 space-y-0">
+              {visibleTrail.drops.map((summary, index) => (
+                <TrailDropRow
+                  disabled={disabled}
+                  index={index}
+                  key={summary.drop.id}
+                  onOpenDrop={onOpenDrop}
+                  summary={summary}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <h2 className="mt-8 text-3xl font-semibold leading-tight tracking-normal">
+            No challenge is available right now.
           </h2>
-          <p className="mt-3 text-base text-[#6d6255]">
-            {drop.questionCount} questions
-          </p>
-        </div>
-        <button
-          className="mt-8 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={disabled}
-          onClick={onPlay}
-          type="button"
-        >
-          {disabled ? "Starting..." : "Play"}
-        </button>
+        )}
         {showGoogleSignIn ? (
           <button
-            className="mt-4 min-h-12 w-full text-base font-semibold text-[#3b6b82] underline-offset-4 hover:underline disabled:opacity-60"
+            className="mt-6 min-h-12 w-full text-base font-semibold text-[#3b6b82] underline-offset-4 hover:underline disabled:opacity-60"
             disabled={disabled}
             onClick={onGoogleSignIn}
             type="button"
@@ -644,6 +733,83 @@ function HomeScreen({
       </section>
     </main>
   );
+}
+
+function TrailDropRow({
+  disabled,
+  index,
+  onOpenDrop,
+  summary,
+}: {
+  disabled: boolean;
+  index: number;
+  onOpenDrop: (dropId: string, status: HomeDropStatus) => void;
+  summary: HomeDropSummary;
+}) {
+  const isCompleted = summary.status === "completed";
+  const actionLabel = getHomeActionLabel(summary);
+
+  return (
+    <div className="grid grid-cols-[2.5rem_1fr] gap-3">
+      <div aria-hidden="true" className="flex flex-col items-center">
+        <span
+          className={[
+            "mt-1 flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold",
+            isCompleted
+              ? "border-[#2f6f4e] bg-[#2f6f4e] text-white"
+              : "border-[#b9ab98] bg-white text-[#6d6255]",
+          ].join(" ")}
+        >
+          {isCompleted ? "✓" : index + 1}
+        </span>
+        <span className="mt-2 min-h-10 w-px flex-1 bg-[#d8cdbd]" />
+      </div>
+      <section
+        className={[
+          "mb-4 rounded-lg border bg-white p-4 shadow-sm",
+          isCompleted ? "border-[#b9d6c1]" : "border-[#d8cdbd]",
+        ].join(" ")}
+      >
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
+          Topic / {summary.drop.topic.name}
+        </p>
+        <p className="mt-1 text-sm font-semibold text-[#3b6b82]">
+          {summary.drop.area.name}
+        </p>
+        <h3 className="mt-3 text-xl font-semibold leading-snug">
+          {summary.drop.title}
+        </h3>
+        <p className="mt-2 text-sm leading-6 text-[#6d6255]">
+          {summary.drop.description}
+        </p>
+        <button
+          className={[
+            "mt-4 min-h-12 w-full rounded-lg px-4 text-base font-semibold transition focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60",
+            isCompleted
+              ? "border border-[#b9d6c1] bg-[#eef8f1] text-[#173d29] hover:border-[#2f6f4e]"
+              : "bg-[#15262f] text-white shadow-sm hover:bg-[#203946]",
+          ].join(" ")}
+          disabled={disabled}
+          onClick={() => onOpenDrop(summary.drop.id, summary.status)}
+          type="button"
+        >
+          {disabled ? "Opening..." : actionLabel}
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function getHomeActionLabel(summary: HomeDropSummary) {
+  if (summary.status === "completed") {
+    return `Explored - ${summary.score ?? 0}/${summary.total} correct`;
+  }
+
+  if (summary.status === "inProgress") {
+    return `Continue - ${summary.currentQuestionNumber ?? 1}/${summary.total} questions`;
+  }
+
+  return `Explore - ${summary.total} questions`;
 }
 
 function InviteLandingScreen({
@@ -693,95 +859,6 @@ function InviteLandingScreen({
           {disabled ? "Starting..." : "Take the challenge"}
         </button>
         {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
-      </section>
-    </main>
-  );
-}
-
-function CaughtUpHomeScreen({
-  drop,
-  score,
-  total,
-  isAuthenticated,
-  journeySavedNotice,
-  disabled,
-  onOpenAccount,
-  onViewResult,
-  onSaveJourney,
-  profile,
-}: {
-  drop: PublicDrop;
-  score: number;
-  total: number;
-  isAuthenticated: boolean;
-  journeySavedNotice: boolean;
-  disabled: boolean;
-  onOpenAccount?: () => void;
-  onViewResult: () => void;
-  onSaveJourney: () => void;
-  profile: Profile | null;
-}) {
-  return (
-    <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#221b14]">
-      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
-        {profile && onOpenAccount ? (
-          <div className="mb-8 flex justify-end">
-            <AccountChip
-              disabled={disabled}
-              onClick={onOpenAccount}
-              profileName={profile.displayName}
-            />
-          </div>
-        ) : null}
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
-          Did You Know?
-        </p>
-        <p className="mt-5 text-sm font-semibold uppercase tracking-[0.18em] text-[#3b6b82]">
-          <span className="block text-xs text-[#7b6f60]">Topic</span>
-          <span>{drop.topic.name}</span>
-        </p>
-        <h1 className="mt-3 text-4xl font-semibold leading-tight tracking-normal">
-          You&apos;re caught up.
-        </h1>
-        <div className="mt-8 border-y border-[#d8cdbd] py-6">
-          <h2 className="text-2xl font-semibold leading-snug">{drop.title}</h2>
-          <p className="mt-3 text-base font-semibold text-[#6d6255]">
-            Completed - {score}/{total}
-          </p>
-        </div>
-        <button
-          className="mt-8 min-h-14 w-full rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9]"
-          onClick={onViewResult}
-          type="button"
-        >
-          View result
-        </button>
-        <p className="mt-5 text-base text-[#6d6255]">
-          More to discover in {drop.topic.name} soon.
-        </p>
-        {journeySavedNotice ? (
-          <div className="mt-6 rounded-lg border border-[#b9d6c1] bg-[#eef8f1] p-4">
-            <p className="font-semibold text-[#173d29]">Journey saved</p>
-            <p className="mt-1 text-sm leading-6 text-[#356245]">
-              Your progress is now connected to your Google account.
-            </p>
-          </div>
-        ) : null}
-        {!isAuthenticated ? (
-          <div className="mt-6 border-t border-[#d8cdbd] pt-5">
-            <p className="text-sm font-medium text-[#6d6255]">
-              Saved on this device
-            </p>
-            <button
-              className="mt-3 text-base font-semibold text-[#3b6b82] underline-offset-4 hover:underline disabled:opacity-60"
-              disabled={disabled}
-              onClick={onSaveJourney}
-              type="button"
-            >
-              Save my journey
-            </button>
-          </div>
-        ) : null}
       </section>
     </main>
   );
@@ -1024,9 +1101,11 @@ function ResultScreen({
   journeySavedNotice,
   onBackToHome,
   onChallenge,
+  onExploreNext,
   onOpenAccount,
   onSaveJourney,
   profile,
+  trailContext,
 }: {
   challenger: Challenger | null;
   drop: PublicDrop;
@@ -1038,9 +1117,11 @@ function ResultScreen({
   journeySavedNotice: boolean;
   onBackToHome: () => void;
   onChallenge: () => void;
+  onExploreNext?: () => void;
   onOpenAccount?: () => void;
   onSaveJourney: () => void;
   profile: Profile | null;
+  trailContext: TrailContext | null;
 }) {
   const challengeCopy =
     score === total
@@ -1084,6 +1165,40 @@ function ResultScreen({
         <p className="mt-5 text-base font-medium text-[#6d6255]">
           {drop.title}
         </p>
+        {trailContext?.nextDrop && onExploreNext ? (
+          <section
+            className={[
+              "mt-8 rounded-lg border p-4",
+              challenger
+                ? "border-[#d8cdbd] bg-white"
+                : "border-[#b9d6c1] bg-[#eef8f1]",
+            ].join(" ")}
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7b6f60]">
+              Continue the trail
+            </p>
+            <h2 className="mt-2 text-xl font-semibold leading-snug">
+              {trailContext.nextDrop.title}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#6d6255]">
+              {trailContext.nextDrop.topic.name} /{" "}
+              {trailContext.nextDrop.area.name}
+            </p>
+            <button
+              className={[
+                "mt-4 min-h-12 w-full rounded-lg px-4 text-base font-semibold transition focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60",
+                challenger
+                  ? "border border-[#b9ab98] bg-white text-[#221b14] hover:border-[#15262f]"
+                  : "bg-[#15262f] text-white shadow-sm hover:bg-[#203946]",
+              ].join(" ")}
+              disabled={disabled}
+              onClick={onExploreNext}
+              type="button"
+            >
+              Explore next
+            </button>
+          </section>
+        ) : null}
         <div className="mt-10">
           <p className="text-lg font-semibold">{challengeCopy}</p>
           <button
@@ -1413,6 +1528,35 @@ type Challenger = {
     score: number;
     total: number;
   };
+};
+
+type HomeDropStatus = "unstarted" | "inProgress" | "completed";
+
+type HomeDropSummary = {
+  drop: PublicDrop;
+  status: HomeDropStatus;
+  currentQuestionNumber: number | null;
+  score: number | null;
+  total: number;
+};
+
+type HomeTrail = {
+  id: string;
+  title: string;
+  description: string;
+  drops: HomeDropSummary[];
+};
+
+type TrailContext = {
+  trail: {
+    id: string;
+    title: string;
+    description: string;
+  };
+  position: number;
+  total: number;
+  previousDrop: PublicDrop | null;
+  nextDrop: PublicDrop | null;
 };
 
 type Profile = {
