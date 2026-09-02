@@ -3102,6 +3102,7 @@ M4 may add:
 * one minimal `knowledgePairs` table;
 * pair creation/reuse after challenged-recipient authentication;
 * challenged Result question-overlap counts;
+* discovery-level examples of what each person knew differently;
 * contextual auth copy: `Keep comparing with {challenger}`;
 * a lightweight `You & {name}` pair surface;
 * Home re-entry for existing pairs;
@@ -3134,6 +3135,36 @@ You Know? experience after the original Result screen is gone.
 
 The accumulated difference between Rohanak and Hira should create a natural
 reason for another Challenge.
+
+## M4 Strategy-Completion Gate
+
+Before M4 is treated as closed, verify:
+
+1. Pair creation requires a completed challenged Attempt for the current
+   authenticated Profile/browser and the supplied Invite.
+2. Pair reads verify the authenticated Profile belongs to the requested pair.
+3. The other person's public pair identity exposes `displayName`, not email.
+4. Already-authenticated challenged recipients can create/reuse the pair without
+   an unnecessary second auth step.
+5. One real two-Profile production flow proves:
+   * anonymous challenged play;
+   * `Keep comparing with {challenger}`;
+   * pair creation after auth;
+   * `You & {challenger}`;
+   * Home re-entry;
+   * refresh/sign-out/sign-in persistence;
+   * one symmetric pair, not duplicate directional pairs;
+   * shared Drops accumulate from canonical Profile progress, not only Challenge
+     history.
+
+Counts alone are not enough to express the thesis. At least one shared Drop
+should show the actual discovery moments behind the difference:
+
+* `You knew this. Hira didn't.`
+* `Hira knew this. You didn't.`
+
+This must remain specific to Drops and Questions. Do not generalize into
+expertise labels or intelligence claims.
 
 ---
 

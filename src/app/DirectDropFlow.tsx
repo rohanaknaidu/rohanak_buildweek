@@ -1637,11 +1637,18 @@ function ResultScreen({
               {challenger?.result.score}/{challenger?.result.total}
             </p>
             {challenger?.overlap ? (
-              <OverlapGrid
-                className="mt-5 max-w-xl"
-                otherName={challenger.displayName}
-                overlap={challenger.overlap}
-              />
+              <>
+                <OverlapGrid
+                  className="mt-5 max-w-xl"
+                  otherName={challenger.displayName}
+                  overlap={challenger.overlap}
+                />
+                <DifferenceDiscoveries
+                  className="mt-4 max-w-xl"
+                  otherName={challenger.displayName}
+                  overlap={challenger.overlap}
+                />
+              </>
             ) : null}
           </>
         ) : (
@@ -1937,6 +1944,11 @@ function PairDropCard({
             otherName={otherName}
             overlap={summary.overlap}
           />
+          <DifferenceDiscoveries
+            className="mt-4"
+            otherName={otherName}
+            overlap={summary.overlap}
+          />
         </>
       ) : summary.myScore !== null ? (
         <div className="mt-5 rounded-3xl border border-[var(--accent)]/30 bg-[#101114]/45 p-4">
@@ -1985,6 +1997,77 @@ function OverlapGrid({
       />
       <OverlapTile label="Neither knew" value={overlap.neitherKnew} />
     </div>
+  );
+}
+
+function DifferenceDiscoveries({
+  className = "",
+  otherName,
+  overlap,
+}: {
+  className?: string;
+  otherName: string;
+  overlap: AnswerOverlap;
+}) {
+  const hasDifferences =
+    overlap.youKnewTheyMissedDiscoveries.length > 0 ||
+    overlap.theyKnewYouMissedDiscoveries.length > 0;
+
+  if (!hasDifferences) {
+    return null;
+  }
+
+  return (
+    <div className={`grid gap-3 ${className}`}>
+      <DiscoveryList
+        discoveries={overlap.youKnewTheyMissedDiscoveries}
+        title={`You knew this. ${otherName} didn't.`}
+      />
+      <DiscoveryList
+        discoveries={overlap.theyKnewYouMissedDiscoveries}
+        title={`${otherName} knew this. You didn't.`}
+      />
+    </div>
+  );
+}
+
+function DiscoveryList({
+  discoveries,
+  title,
+}: {
+  discoveries: AnswerDifference[];
+  title: string;
+}) {
+  if (discoveries.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-3xl border border-[#fff8e8]/12 bg-[#101114]/45 p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#f2c184]">
+        {title}
+      </p>
+      <div className="mt-3 space-y-3">
+        {discoveries.map((discovery) => (
+          <article key={discovery.questionId}>
+            <p className="text-sm font-semibold leading-6 text-[#fff8e8]">
+              {discovery.prompt}
+            </p>
+            <p className="mt-1 text-sm leading-6 text-[#c9c0ad]">
+              {discovery.explanation}
+            </p>
+            <a
+              className="mt-2 inline-flex text-xs font-bold uppercase tracking-[0.16em] text-[#8fb7c9] underline-offset-4 hover:underline"
+              href={discovery.source.url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Source: {discovery.source.label}
+            </a>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -2308,6 +2391,18 @@ type AnswerOverlap = {
   youKnewTheyMissed: number;
   theyKnewYouMissed: number;
   neitherKnew: number;
+  youKnewTheyMissedDiscoveries: AnswerDifference[];
+  theyKnewYouMissedDiscoveries: AnswerDifference[];
+};
+
+type AnswerDifference = {
+  questionId: string;
+  prompt: string;
+  explanation: string;
+  source: {
+    label: string;
+    url: string;
+  };
 };
 
 type HomeDropStatus = "unstarted" | "inProgress" | "completed";
@@ -2322,7 +2417,7 @@ type HomeDropSummary = {
 
 type PairSummary = {
   id: Id<"knowledgePairs">;
-  otherProfile: Profile;
+  otherProfile: SocialProfile;
   sharedExplorationCount: number;
 };
 
@@ -2336,7 +2431,7 @@ type PairDropSummary = {
 
 type PairState = {
   id: Id<"knowledgePairs">;
-  otherProfile: Profile;
+  otherProfile: SocialProfile;
   drops: PairDropSummary[];
 };
 
@@ -2365,4 +2460,9 @@ type Profile = {
   id: string;
   displayName: string;
   email?: string;
+};
+
+type SocialProfile = {
+  id: string;
+  displayName: string;
 };

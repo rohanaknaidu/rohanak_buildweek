@@ -44,6 +44,9 @@
 - [x] Add a current-user-only pair query that verifies the authenticated Profile belongs to the pair.
 - [x] Return shared completed Drops and one-sided explored Drops.
 - [x] For shared Drops, return both scores and correctness overlap counts: both knew, you knew they missed, they knew you missed, neither knew.
+- [x] Require a completed challenged Attempt before creating/reusing a pair from an Invite.
+- [x] Return discovery-level examples for each side's known/missed differences.
+- [x] Return only display name for the other person in pair summaries/details.
 
 ### Task 4: Add Product UI
 
@@ -51,6 +54,7 @@
 * Modify: `src/app/DirectDropFlow.tsx`
 
 - [x] On challenged Result, show question-level difference counts when available.
+- [x] On challenged Result and pair cards, show actual discovery moments when one person knew something the other missed.
 - [x] For challenged anonymous Result, change social auth copy to `Keep comparing with {name}`.
 - [x] After social auth, route to a `You & {name}` surface instead of Home.
 - [x] Add a lightweight Home re-entry section for existing pairs.

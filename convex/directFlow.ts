@@ -170,6 +170,47 @@ async function getAnswers(ctx: QueryCtx | MutationCtx, attemptId: Id<"attempts">
     .collect();
 }
 
+async function getCompletedChallengedAttempt({
+  ctx,
+  playerId,
+  profileId,
+  invite,
+}: {
+  ctx: QueryCtx | MutationCtx;
+  playerId: string;
+  profileId: Id<"profiles">;
+  invite: InviteDoc;
+}) {
+  const [playerAttempts, profileAttempt] = await Promise.all([
+    ctx.db
+      .query("attempts")
+      .withIndex("by_playerId_dropId", (q) =>
+        q.eq("playerId", playerId).eq("dropId", invite.dropId),
+      )
+      .collect(),
+    getProfileAttempt(ctx, profileId, invite.dropId),
+  ]);
+  const attemptsById = new Map<Id<"attempts">, Doc<"attempts">>();
+
+  for (const attempt of playerAttempts) {
+    attemptsById.set(attempt._id, attempt);
+  }
+
+  if (profileAttempt) {
+    attemptsById.set(profileAttempt._id, profileAttempt);
+  }
+
+  return (
+    [...attemptsById.values()].find(
+      (attempt) =>
+        attempt.stage === "result" &&
+        attempt.sourceInviteId === invite._id &&
+        attempt.dropId === invite.dropId &&
+        (attempt.playerId === playerId || attempt.profileId === profileId),
+    ) ?? null
+  );
+}
+
 async function getInviteByString(ctx: QueryCtx | MutationCtx, inviteId: string) {
   const normalizedId = ctx.db.normalizeId("invites", inviteId);
 
@@ -317,6 +358,18 @@ function getAnswerOverlap({
     youKnewTheyMissed: 0,
     theyKnewYouMissed: 0,
     neitherKnew: 0,
+    youKnewTheyMissedDiscoveries: [] as {
+      questionId: string;
+      prompt: string;
+      explanation: string;
+      source: { label: string; url: string };
+    }[],
+    theyKnewYouMissedDiscoveries: [] as {
+      questionId: string;
+      prompt: string;
+      explanation: string;
+      source: { label: string; url: string };
+    }[],
   };
 
   for (const question of drop.questions) {
@@ -327,8 +380,20 @@ function getAnswerOverlap({
       overlap.bothKnew += 1;
     } else if (iKnew) {
       overlap.youKnewTheyMissed += 1;
+      overlap.youKnewTheyMissedDiscoveries.push({
+        questionId: question.id,
+        prompt: question.prompt,
+        explanation: question.reveal.explanation,
+        source: question.reveal.source,
+      });
     } else if (theyKnew) {
       overlap.theyKnewYouMissed += 1;
+      overlap.theyKnewYouMissedDiscoveries.push({
+        questionId: question.id,
+        prompt: question.prompt,
+        explanation: question.reveal.explanation,
+        source: question.reveal.source,
+      });
     } else {
       overlap.neitherKnew += 1;
     }
@@ -429,7 +494,6 @@ async function makePairSummary(
     otherProfile: {
       id: otherProfile._id,
       displayName: otherProfile.displayName,
-      email: otherProfile.email,
     },
     sharedExplorationCount,
   };
@@ -495,7 +559,6 @@ async function makePairDetail(
     otherProfile: {
       id: otherProfile._id,
       displayName: otherProfile.displayName,
-      email: otherProfile.email,
     },
     drops: dropSummaries.filter((summary) => summary !== null),
   };
@@ -894,8 +957,18 @@ export const ensureProfileAndClaim = mutation({
     const inviteContext = args.pairFromInviteId
       ? await getInviteContext(ctx, args.pairFromInviteId)
       : null;
+    const completedChallengedAttempt = inviteContext
+      ? await getCompletedChallengedAttempt({
+          ctx,
+          playerId: args.playerId,
+          profileId: profile._id,
+          invite: inviteContext.invite,
+        })
+      : null;
     const pair =
-      inviteContext && inviteContext.challenger.profileId !== profile._id
+      inviteContext &&
+      completedChallengedAttempt &&
+      inviteContext.challenger.profileId !== profile._id
         ? await ensureKnowledgePair({
             ctx,
             profileAId: profile._id,
