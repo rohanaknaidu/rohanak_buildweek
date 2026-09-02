@@ -647,50 +647,81 @@ function DropFlowInner({
 type TerritoryTheme = {
   accent: string;
   secondary: string;
-  name: string;
+  motif: string;
   pattern: string;
 };
 
 const defaultTheme: TerritoryTheme = {
   accent: "#f2c184",
   secondary: "#8fb7c9",
-  name: "unknown",
+  motif: "default",
   pattern:
     "linear-gradient(135deg, rgba(242, 193, 132, 0.10), transparent 38%), repeating-linear-gradient(90deg, rgba(255, 248, 232, 0.05) 0 1px, transparent 1px 58px)",
 };
 
-function getTerritoryTheme(topicId: string): TerritoryTheme {
-  if (topicId === "space") {
-    return {
+const visualFamilies: Record<string, Omit<TerritoryTheme, "motif" | "pattern">> =
+  {
+    cosmic: {
       accent: "#f2c184",
       secondary: "#6f9dff",
-      name: "space",
-      pattern:
-        "radial-gradient(circle at 20% 20%, rgba(242, 193, 132, 0.16) 0 1px, transparent 2px), radial-gradient(circle at 80% 30%, rgba(111, 157, 255, 0.14) 0 1px, transparent 2px), repeating-linear-gradient(115deg, rgba(255, 248, 232, 0.04) 0 1px, transparent 1px 72px)",
-    };
-  }
-
-  if (topicId === "physics") {
-    return {
+    },
+    gravitational: {
       accent: "#8fb7c9",
       secondary: "#f2c184",
-      name: "physics",
-      pattern:
-        "repeating-radial-gradient(ellipse at 65% 30%, rgba(143, 183, 201, 0.18) 0 1px, transparent 2px 36px), linear-gradient(140deg, rgba(143, 183, 201, 0.08), transparent 48%)",
-    };
-  }
-
-  if (topicId === "body") {
-    return {
+    },
+    organic: {
       accent: "#d67f7f",
       secondary: "#a4d6b2",
-      name: "body",
-      pattern:
-        "repeating-linear-gradient(155deg, rgba(214, 127, 127, 0.10) 0 2px, transparent 2px 28px), radial-gradient(circle at 72% 28%, rgba(164, 214, 178, 0.12), transparent 28%)",
-    };
+    },
+  };
+
+const visualMotifs: Record<string, Pick<TerritoryTheme, "motif" | "pattern">> = {
+  orbit: {
+    motif: "orbit",
+    pattern:
+      "radial-gradient(circle at 20% 20%, rgba(242, 193, 132, 0.16) 0 1px, transparent 2px), radial-gradient(circle at 80% 30%, rgba(111, 157, 255, 0.14) 0 1px, transparent 2px), repeating-linear-gradient(115deg, rgba(255, 248, 232, 0.04) 0 1px, transparent 1px 72px)",
+  },
+  "falling-arc": {
+    motif: "falling-arc",
+    pattern:
+      "repeating-radial-gradient(ellipse at 65% 30%, rgba(143, 183, 201, 0.18) 0 1px, transparent 2px 36px), linear-gradient(140deg, rgba(143, 183, 201, 0.08), transparent 48%)",
+  },
+  "microgravity-body": {
+    motif: "microgravity-body",
+    pattern:
+      "repeating-linear-gradient(155deg, rgba(214, 127, 127, 0.10) 0 2px, transparent 2px 28px), radial-gradient(circle at 72% 28%, rgba(164, 214, 178, 0.12), transparent 28%)",
+  },
+};
+
+type ArtworkDescriptor = {
+  motif: "rings" | "arc" | "body";
+};
+
+const visualArtworks: Record<string, ArtworkDescriptor> = {
+  "solar-system-orbits": { motif: "rings" },
+  "planetary-surprise": { motif: "rings" },
+  "gravity-freefall": { motif: "arc" },
+  "orbital-fall": { motif: "arc" },
+  "body-in-microgravity": { motif: "body" },
+  "fluid-shift": { motif: "body" },
+};
+
+function getTerritoryTheme(visualIdentity?: VisualIdentity): TerritoryTheme {
+  if (!visualIdentity) {
+    return defaultTheme;
   }
 
-  return defaultTheme;
+  const family = visualFamilies[visualIdentity.family];
+  const motif = visualMotifs[visualIdentity.motif];
+
+  if (!family || !motif) {
+    return defaultTheme;
+  }
+
+  return {
+    ...family,
+    ...motif,
+  };
 }
 
 function WorldAtmosphere({ theme = defaultTheme }: { theme?: TerritoryTheme }) {
@@ -718,7 +749,7 @@ function TerritoryMark({
 }) {
   const size = large ? "h-24 w-24" : "h-16 w-16";
 
-  if (theme.name === "physics") {
+  if (theme.motif === "falling-arc") {
     return (
       <div
         aria-hidden="true"
@@ -731,7 +762,7 @@ function TerritoryMark({
     );
   }
 
-  if (theme.name === "body") {
+  if (theme.motif === "microgravity-body") {
     return (
       <div
         aria-hidden="true"
@@ -752,6 +783,58 @@ function TerritoryMark({
       <span className="absolute left-1/2 top-1/2 h-[54%] w-[112%] -translate-x-1/2 -translate-y-1/2 rotate-[-18deg] rounded-full border border-[var(--accent)]/55" />
       <span className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--accent)]" />
       <span className="absolute right-2 top-3 h-2 w-2 rounded-full bg-[#fff8e8]/80" />
+    </div>
+  );
+}
+
+function ArtworkSignal({
+  artworkId,
+  theme,
+}: {
+  artworkId?: string;
+  theme: TerritoryTheme;
+}) {
+  const artwork = artworkId ? visualArtworks[artworkId] : null;
+
+  if (!artwork) {
+    return <TerritoryMark theme={theme} />;
+  }
+
+  if (artwork.motif === "arc") {
+    return (
+      <div
+        aria-hidden="true"
+        className="relative h-24 w-24 rounded-full border border-[var(--accent)]/35"
+      >
+        <span className="absolute left-2 top-11 h-2 w-2 rounded-full bg-[#fff8e8]" />
+        <span className="absolute left-1/2 top-1/2 h-[72%] w-[110%] -translate-x-1/2 -translate-y-1/2 -rotate-12 rounded-full border border-[var(--accent)]/50" />
+        <span className="absolute bottom-5 right-4 h-4 w-4 rounded-full bg-[var(--accent)]" />
+      </div>
+    );
+  }
+
+  if (artwork.motif === "body") {
+    return (
+      <div
+        aria-hidden="true"
+        className="relative h-24 w-24 rounded-[2rem] border border-[var(--accent)]/35"
+      >
+        <span className="absolute left-1/2 top-4 h-9 w-9 -translate-x-1/2 rounded-full border border-[var(--accent)]/45" />
+        <span className="absolute left-1/2 top-12 h-9 w-12 -translate-x-1/2 rounded-full bg-[var(--accent)]/20" />
+        <span className="absolute bottom-5 left-1/2 h-2 w-12 -translate-x-1/2 rounded-full bg-[var(--accent)]" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      aria-hidden="true"
+      className="relative h-24 w-24 rounded-full border border-[var(--accent)]/35"
+    >
+      <span className="absolute left-1/2 top-1/2 h-[66%] w-[120%] -translate-x-1/2 -translate-y-1/2 rotate-[-18deg] rounded-full border border-[var(--accent)]/55" />
+      <span className="absolute left-1/2 top-1/2 h-[44%] w-[90%] -translate-x-1/2 -translate-y-1/2 rotate-[18deg] rounded-full border border-[var(--accent)]/35" />
+      <span className="absolute left-1/2 top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--accent)]" />
+      <span className="absolute right-3 top-4 h-2 w-2 rounded-full bg-[#fff8e8]/85" />
     </div>
   );
 }
@@ -823,7 +906,11 @@ function HomeScreen({
               <div className="space-y-5">
                 {visibleTrail.drops.map((summary, index) => (
                   <TrailDropRow
-                    bridge={visibleTrail.bridges?.[index] ?? null}
+                    bridge={
+                      index < visibleTrail.drops.length - 1
+                        ? visibleTrail.bridges?.[index] ?? null
+                        : null
+                    }
                     disabled={disabled}
                     index={index}
                     key={summary.drop.id}
@@ -871,7 +958,7 @@ function TrailDropRow({
   const isCompleted = summary.status === "completed";
   const isInProgress = summary.status === "inProgress";
   const actionLabel = getHomeActionLabel(summary);
-  const theme = getTerritoryTheme(summary.drop.topic.id);
+  const theme = getTerritoryTheme(summary.drop.experience.visualIdentity);
 
   return (
     <div className="relative grid grid-cols-[3rem_1fr] gap-3 sm:grid-cols-[4rem_1fr]">
@@ -900,7 +987,10 @@ function TrailDropRow({
         style={{ "--accent": theme.accent } as CSSProperties}
       >
         <div className="absolute right-3 top-3 opacity-80">
-          <TerritoryMark theme={theme} />
+          <ArtworkSignal
+            artworkId={summary.drop.experience.visualIdentity.artwork?.hero}
+            theme={theme}
+          />
         </div>
         <p className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent)]">
           {summary.drop.topic.name}
@@ -979,7 +1069,7 @@ function InviteLandingScreen({
     challenger.result.score === challenger.result.total
       ? "Can you match that?"
       : "Can you beat that?";
-  const theme = getTerritoryTheme(drop.topic.id);
+  const theme = getTerritoryTheme(drop.experience.visualIdentity);
 
   return (
     <main
@@ -988,7 +1078,10 @@ function InviteLandingScreen({
     >
       <WorldAtmosphere theme={theme} />
       <section className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
-        <TerritoryMark theme={theme} large />
+        <ArtworkSignal
+          artworkId={drop.experience.visualIdentity.artwork?.hero}
+          theme={theme}
+        />
         <p className="mt-8 text-xs font-bold uppercase tracking-[0.3em] text-[var(--accent)]">
           Did You Know?
         </p>
@@ -1050,7 +1143,7 @@ function PlayScreen({
 }) {
   const isReveal = reveal !== null;
   const selectedOptionId = reveal?.selectedOptionId ?? committedOptionId;
-  const theme = getTerritoryTheme(drop.topic.id);
+  const theme = getTerritoryTheme(drop.experience.visualIdentity);
 
   return (
     <main
@@ -1077,7 +1170,10 @@ function PlayScreen({
 
         <div className="flex flex-1 flex-col justify-center py-8">
           <div className="mb-8 flex justify-end">
-            <TerritoryMark theme={theme} large />
+            <ArtworkSignal
+              artworkId={drop.experience.visualIdentity.artwork?.hero}
+              theme={theme}
+            />
           </div>
           <h1 className="text-4xl font-semibold leading-[1.05] tracking-normal text-[#fff8e8]">
             {question.prompt}
@@ -1101,6 +1197,7 @@ function PlayScreen({
           {isReveal ? (
             <RevealPanel
               disabled={disabled}
+              drop={drop}
               isCorrect={reveal.correct}
               onContinue={onContinue}
               questionCount={questionCount}
@@ -1228,6 +1325,7 @@ function AnswerButton({
 }
 
 function RevealPanel({
+  drop,
   isCorrect,
   questionIndex,
   questionCount,
@@ -1235,6 +1333,7 @@ function RevealPanel({
   disabled,
   onContinue,
 }: {
+  drop: PublicDrop;
   isCorrect: boolean;
   questionIndex: number;
   questionCount: number;
@@ -1242,8 +1341,16 @@ function RevealPanel({
   disabled: boolean;
   onContinue: () => void;
 }) {
+  const theme = getTerritoryTheme(drop.experience.visualIdentity);
+
   return (
     <section className="mt-7 rounded-3xl border border-[var(--accent)]/35 bg-[#fff8e8] p-5 text-[#17120d] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+      <div className="mb-5 flex justify-end opacity-80">
+        <ArtworkSignal
+          artworkId={drop.experience.visualIdentity.artwork?.reveal}
+          theme={theme}
+        />
+      </div>
       <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#7a5a2f]">
         {isCorrect ? "You knew it." : "You didn't know."}
       </p>
@@ -1311,7 +1418,7 @@ function ResultScreen({
       ? `Think someone can match your ${score}/${total}?`
       : `Think someone can beat your ${score}/${total}?`;
   const comparison = challenger ? getComparisonCopy(score, challenger) : null;
-  const theme = getTerritoryTheme(drop.topic.id);
+  const theme = getTerritoryTheme(drop.experience.visualIdentity);
 
   return (
     <main
@@ -1366,7 +1473,10 @@ function ResultScreen({
                   {drop.area.name}
                 </p>
               </div>
-              <TerritoryMark theme={theme} />
+              <ArtworkSignal
+                artworkId={drop.experience.visualIdentity.artwork?.hero}
+                theme={theme}
+              />
             </div>
             {trailContext?.nextDrop && onExploreNext ? (
           <section
@@ -1715,7 +1825,21 @@ type PublicDrop = {
   };
   title: string;
   description: string;
+  experience: {
+    centralIdea: string;
+    exitUnderstanding: string;
+    visualIdentity: VisualIdentity;
+  };
   questionCount: number;
+};
+
+type VisualIdentity = {
+  family: string;
+  motif: string;
+  artwork?: {
+    hero?: string;
+    reveal?: string;
+  };
 };
 
 type PublicQuestion = {

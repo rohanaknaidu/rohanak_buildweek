@@ -9,6 +9,20 @@ export const physicsGravityStrange001 = {
     "Five quick challenges about falling, orbiting, tides, weight, and time.",
   status: "live",
   releaseOrder: 2,
+  experience: {
+    centralIdea:
+      "Orbit, falling, weight, tides, and time are connected by gravity.",
+    exitUnderstanding:
+      "Gravity is not just things falling downward; it shapes motion, weight, oceans, orbits, and even time.",
+    visualIdentity: {
+      family: "gravitational",
+      motif: "falling-arc",
+      artwork: {
+        hero: "gravity-freefall",
+        reveal: "orbital-fall",
+      },
+    },
+  },
   questions: [
     {
       id: "iss-still-gravity",

@@ -7,6 +7,40 @@ import { topics } from "./topics";
 
 export type DropStatus = "draft" | "live";
 
+export type VisualFamily = string;
+
+export type VisualMotif = string;
+
+const supportedVisualFamilies = ["cosmic", "gravitational", "organic"] as const;
+const supportedVisualMotifs = [
+  "orbit",
+  "falling-arc",
+  "microgravity-body",
+] as const;
+const supportedArtworkIds = [
+  "solar-system-orbits",
+  "planetary-surprise",
+  "gravity-freefall",
+  "orbital-fall",
+  "body-in-microgravity",
+  "fluid-shift",
+] as const;
+
+export type VisualIdentity = {
+  family: VisualFamily;
+  motif: VisualMotif;
+  artwork?: {
+    hero?: string;
+    reveal?: string;
+  };
+};
+
+export type DropExperience = {
+  centralIdea: string;
+  exitUnderstanding: string;
+  visualIdentity: VisualIdentity;
+};
+
 export type Source = {
   label: string;
   url: string;
@@ -38,6 +72,7 @@ export type DropContent = {
   description: string;
   status: DropStatus;
   releaseOrder: number;
+  experience: DropExperience;
   questions: Question[];
 };
 
@@ -128,6 +163,7 @@ export function toPublicDrop(drop: Drop) {
     area: drop.area,
     title: drop.title,
     description: drop.description,
+    experience: drop.experience,
     questionCount: drop.questions.length,
   };
 }
@@ -166,6 +202,7 @@ export function toPublicQuestion(question: Question) {
 function resolveDrop(drop: DropContent): Drop {
   const topic = topics.find((candidate) => candidate.id === drop.topicId);
   const area = areas.find((candidate) => candidate.id === drop.areaId);
+  validateVisualIdentity(drop);
 
   if (!topic) {
     throw new Error(`Drop "${drop.id}" references missing Topic "${drop.topicId}".`);
@@ -186,6 +223,41 @@ function resolveDrop(drop: DropContent): Drop {
     topic,
     area,
   };
+}
+
+function validateVisualIdentity(drop: DropContent) {
+  if (
+    !(supportedVisualFamilies as readonly string[]).includes(
+      drop.experience.visualIdentity.family,
+    )
+  ) {
+    throw new Error(
+      `Drop "${drop.id}" references unsupported visual family "${drop.experience.visualIdentity.family}".`,
+    );
+  }
+
+  if (
+    !(supportedVisualMotifs as readonly string[]).includes(
+      drop.experience.visualIdentity.motif,
+    )
+  ) {
+    throw new Error(
+      `Drop "${drop.id}" references unsupported visual motif "${drop.experience.visualIdentity.motif}".`,
+    );
+  }
+
+  for (const artworkId of Object.values(
+    drop.experience.visualIdentity.artwork ?? {},
+  )) {
+    if (
+      artworkId &&
+      !(supportedArtworkIds as readonly string[]).includes(artworkId)
+    ) {
+      throw new Error(
+        `Drop "${drop.id}" references unsupported artwork "${artworkId}".`,
+      );
+    }
+  }
 }
 
 function resolveTrail(trail: Trail): Trail {

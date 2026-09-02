@@ -2952,7 +2952,82 @@ Known product gap:
 
 ---
 
-# 33. Next Section To Define
+# 33. M3.2 - Drop Experience System
+
+## CURRENT DIRECTION
+
+M3.2 creates the reusable contract that turns structured Drop content into a complete Did You Know? experience.
+
+Principle:
+
+`Consistent experience grammar, variable knowledge identity.`
+
+M3.2 acceptance criterion:
+
+`A new Drop can become a complete Did You Know? experience by filling the Drop Brief and structured content fields, without editing play, Result, Invite, auth, ownership, or other product-engine logic.`
+
+## M3.2 In Scope
+
+M3.2 may add:
+
+* `docs/DROP_EXPERIENCE_SYSTEM.md`;
+* `docs/templates/DROP_BRIEF.md`;
+* internal editorial metadata on Drops, including central idea and exit understanding;
+* Drop-level visual identity selection from a product-owned vocabulary;
+* optional semantic artwork IDs;
+* a generic visual vocabulary registry used by standard surfaces;
+* migration of the three LIVE M3 Drops onto the contract;
+* an ephemeral fourth-Drop proof that is removed before commit.
+
+Generic rendering may switch on visual vocabulary keys only.
+
+Do not branch visual or product behavior on Drop ID or Topic ID.
+
+## M3.2 Out Of Scope
+
+Do not add:
+
+* CMS / admin infrastructure;
+* database content migration;
+* Reset / replay;
+* Knowledge Map;
+* Concept graph;
+* XP / mastery / streaks;
+* leaderboard;
+* friend graph / feed;
+* recommendation engine;
+* AI generation;
+* new social systems.
+
+## M3.2 Proof
+
+M3.2 passes if a temporary fourth Drop can be created by changing only content and Trail configuration, using an existing visual family / motif, and automatically receives:
+
+* Home representation;
+* territory identity;
+* Question experience;
+* Reveal experience;
+* Result experience;
+* Invite landing;
+* Challenge support;
+* resume / progress;
+* responsive behavior.
+
+M3.2 fails if that ordinary Drop requires edits to:
+
+* `DirectDropFlow.tsx`;
+* Attempt / Answer logic;
+* Result logic;
+* Invite logic;
+* auth / ownership;
+* bespoke CSS for the Drop;
+* layout conditionals based on Drop or Topic identity.
+
+Adding a genuinely new visual family or interaction primitive is a product/design-system extension, not ordinary Drop authoring.
+
+---
+
+# 34. Next Section To Define
 
 ## TODO - Concrete V1 User Journeys
 

@@ -9,6 +9,20 @@ export const bodySpaceflightChanges001 = {
     "Five quick challenges about what microgravity does to the human body.",
   status: "live",
   releaseOrder: 3,
+  experience: {
+    centralIdea:
+      "The human body is tuned to Earth gravity and adapts quickly when that environment disappears.",
+    exitUnderstanding:
+      "Microgravity changes fluids, bones, muscles, height, and balance because the body is constantly responding to its physical environment.",
+    visualIdentity: {
+      family: "organic",
+      motif: "microgravity-body",
+      artwork: {
+        hero: "body-in-microgravity",
+        reveal: "fluid-shift",
+      },
+    },
+  },
   questions: [
     {
       id: "fluid-shifts-head",

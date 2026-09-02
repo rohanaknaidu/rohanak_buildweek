@@ -8,6 +8,20 @@ export const spaceSolarSystemStrange001 = {
   description: "Five quick questions about the surprising worlds closest to home.",
   status: "live",
   releaseOrder: 1,
+  experience: {
+    centralIdea:
+      "The familiar planetary neighborhood behaves in deeply unintuitive ways.",
+    exitUnderstanding:
+      "The Solar System is not orderly in the way it looks from simple diagrams; nearby worlds spin, tilt, float, and erupt in surprising ways.",
+    visualIdentity: {
+      family: "cosmic",
+      motif: "orbit",
+      artwork: {
+        hero: "solar-system-orbits",
+        reveal: "planetary-surprise",
+      },
+    },
+  },
   questions: [
     {
       id: "jupiter-shortest-day",
