@@ -760,7 +760,7 @@ function TrailDropRow({
               : "border-[#b9ab98] bg-white text-[#6d6255]",
           ].join(" ")}
         >
-          {isCompleted ? "✓" : index + 1}
+          {isCompleted ? "OK" : index + 1}
         </span>
         <span className="mt-2 min-h-10 w-px flex-1 bg-[#d8cdbd]" />
       </div>
