@@ -3,6 +3,7 @@
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
 import {
   useCallback,
@@ -14,10 +15,11 @@ import {
   useTransition,
 } from "react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
 type PlayerIdState = "loading" | string;
 type ShareState = "closed" | "auth" | "choices";
-type PendingAuthAction = "challenge" | "save";
+type PendingAuthAction = "challenge" | "compare" | "save";
 type ActiveDropSelection = {
   dropId: string;
   source: "storage" | "url" | "user";
@@ -80,7 +82,9 @@ function getPendingAuthAction() {
   );
   const value =
     searchValue ?? window.localStorage.getItem(pendingAuthActionStorageKey);
-  return value === "challenge" || value === "save" ? value : null;
+  return value === "challenge" || value === "compare" || value === "save"
+    ? value
+    : null;
 }
 
 function getPendingDropSelection(): ActiveDropSelection | null {
@@ -173,10 +177,13 @@ function DropFlowInner({
 }) {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const { signIn, signOut } = useAuthActions();
+  const router = useRouter();
   const [activeDropSelection, setActiveDropSelection] =
     useState<ActiveDropSelection | null>(() =>
       inviteId ? null : getPendingDropSelection(),
     );
+  const [activePairId, setActivePairId] =
+    useState<Id<"knowledgePairs"> | null>(null);
   const activeDropId = activeDropSelection?.dropId ?? null;
   const homeState = useQuery(
     api.directFlow.getHomeState,
@@ -189,6 +196,10 @@ function DropFlowInner({
   const inviteFlowState = useQuery(
     api.directFlow.getInviteFlowState,
     inviteId ? { playerId, inviteId } : "skip",
+  );
+  const pairState = useQuery(
+    api.directFlow.getPairState,
+    activePairId ? { pairId: activePairId } : "skip",
   );
   const flowState = inviteId ? inviteFlowState : directFlowState;
   const shouldRecoverFromStaleStoredDrop =
@@ -212,33 +223,38 @@ function DropFlowInner({
     useState<PendingAuthAction>("challenge");
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [shareDisplayName, setShareDisplayName] = useState<string | null>(null);
+  const [shareContext, setShareContext] = useState<{
+    score: number;
+    total: number;
+    topicTitle: string;
+  } | null>(null);
   const [claimedProfile, setClaimedProfile] = useState<Profile | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [journeySavedNotice, setJourneySavedNotice] = useState(false);
   const completedPendingAuthAction = useRef<string | null>(null);
 
-  const ensureInvite = useCallback(async () => {
-    if (!flowState || !("drop" in flowState) || !flowState.drop) {
-      throw new Error("Could not find this Drop.");
-    }
-
+  const ensureInviteForDrop = useCallback(async (dropId: string) => {
     const origin = window.location.origin;
     const result = await getOrCreateInvite({
       playerId,
-      dropId: flowState.drop.id,
+      dropId,
       origin,
     });
     setShareMessage(result.invite.message);
     return result.invite;
-  }, [flowState, getOrCreateInvite, playerId]);
+  }, [getOrCreateInvite, playerId]);
 
   const completeAuthenticatedAction = useCallback(
     (action: PendingAuthAction) => {
       setError(null);
       startTransition(async () => {
         try {
-          const claimResult = await ensureProfileAndClaim({ playerId });
+          const claimResult = await ensureProfileAndClaim({
+            playerId,
+            pairFromInviteId:
+              action === "compare" && inviteId ? inviteId : undefined,
+          });
           if (!claimResult.profile) {
             throw new Error("Profile was not available after sign-in.");
           }
@@ -250,8 +266,19 @@ function DropFlowInner({
 
           if (action === "challenge") {
             setShareDisplayName(claimResult.profile.displayName);
-            await ensureInvite();
+            if (!flowState || !("drop" in flowState) || !flowState.drop) {
+              throw new Error("Could not find this Drop.");
+            }
+            await ensureInviteForDrop(flowState.drop.id);
+            setShareContext({
+              score: flowState.attemptState?.result?.score ?? 0,
+              total: flowState.drop.questionCount,
+              topicTitle: flowState.drop.topic.name,
+            });
             setShareState("choices");
+          } else if (action === "compare" && claimResult.pair) {
+            setShareState("closed");
+            setActivePairId(claimResult.pair.id);
           } else {
             setShareState("closed");
             setActiveDropSelection(null);
@@ -262,7 +289,7 @@ function DropFlowInner({
         }
       });
     },
-    [ensureInvite, ensureProfileAndClaim, playerId],
+    [ensureInviteForDrop, ensureProfileAndClaim, flowState, inviteId, playerId],
   );
 
   const handleSignOut = () => {
@@ -273,11 +300,13 @@ function DropFlowInner({
         clearAuthReturnIntent();
         setShareState("closed");
         setShareMessage(null);
+        setShareContext(null);
         setShareDisplayName(null);
         setCopyStatus(null);
         setClaimedProfile(null);
         setJourneySavedNotice(false);
         setIsAccountOpen(false);
+        setActivePairId(null);
         setActiveDropSelection(null);
         window.localStorage.removeItem(activeDropStorageKey);
         onPlayerIdRotated();
@@ -324,8 +353,79 @@ function DropFlowInner({
     window.localStorage.removeItem(activeDropStorageKey);
   }, [shouldRecoverFromStaleStoredDrop]);
 
+  const currentProfile =
+    homeState && homeState !== undefined
+      ? (homeState.profile ?? claimedProfile)
+      : flowState && "profile" in flowState
+        ? (flowState.profile ?? claimedProfile)
+        : claimedProfile;
+
+  const openPairChallenge = useCallback(
+    (summary: PairDropSummary) => {
+      if (!currentProfile || summary.myScore === null) {
+        return;
+      }
+
+      setError(null);
+      setCopyStatus(null);
+      setShareMessage(null);
+      setShareContext(null);
+      startTransition(async () => {
+        try {
+          await ensureInviteForDrop(summary.drop.id);
+          setShareContext({
+            score: summary.myScore ?? 0,
+            total: summary.total,
+            topicTitle: summary.drop.topic.name,
+          });
+          setShareDisplayName(currentProfile.displayName);
+          setShareState("choices");
+        } catch {
+          setError("Could not prepare your invite. Please try again.");
+        }
+      });
+    },
+    [currentProfile, ensureInviteForDrop],
+  );
+
   if (authLoading) {
     return <ShellLoading />;
+  }
+
+  if (activePairId) {
+    if (pairState === undefined) {
+      return <ShellLoading />;
+    }
+
+    return (
+      <>
+        <PairScreen
+          disabled={isPending}
+          error={error}
+          onBackToHome={() => {
+            setActivePairId(null);
+            if (inviteId) {
+              router.push("/");
+            }
+          }}
+          onChallengeDrop={openPairChallenge}
+          pair={pairState}
+        />
+        {shareState === "choices" && shareContext ? (
+          <ShareChoiceSheet
+            copyStatus={copyStatus}
+            disabled={isPending}
+            displayName={shareDisplayName ?? currentProfile?.displayName ?? "A friend"}
+            onClose={() => setShareState("closed")}
+            onCopy={copyInvite}
+            onWhatsApp={openWhatsApp}
+            score={shareContext.score}
+            topicTitle={shareContext.topicTitle}
+            total={shareContext.total}
+          />
+        ) : null}
+      </>
+    );
   }
 
   if (!inviteId && (!activeDropId || shouldRecoverFromStaleStoredDrop)) {
@@ -345,6 +445,7 @@ function DropFlowInner({
           onOpenAccount={profile ? () => setIsAccountOpen(true) : undefined}
           onOpenDrop={(dropId, status) => {
             setError(null);
+            setActivePairId(null);
             setActiveDropSelection({ dropId, source: "user" });
             window.localStorage.setItem(activeDropStorageKey, dropId);
             if (status === "completed") {
@@ -362,6 +463,11 @@ function DropFlowInner({
             });
           }}
           profile={profile}
+          pairs={homeState.pairs}
+          onOpenPair={(pairId) => {
+            setError(null);
+            setActivePairId(pairId);
+          }}
           showGoogleSignIn={profile === null}
           totalCount={homeState.totalCount}
           trails={homeState.trails}
@@ -464,6 +570,7 @@ function DropFlowInner({
     setError(null);
     setCopyStatus(null);
     setShareMessage(null);
+    setShareContext(null);
 
     if (!profile) {
       openAuthSheet("challenge");
@@ -472,7 +579,15 @@ function DropFlowInner({
 
     startTransition(async () => {
       try {
-        await ensureInvite();
+        if (!flowState || !("drop" in flowState) || !flowState.drop) {
+          throw new Error("Could not find this Drop.");
+        }
+        await ensureInviteForDrop(flowState.drop.id);
+        setShareContext({
+          score: flowState.attemptState?.result?.score ?? 0,
+          total: flowState.drop.questionCount,
+          topicTitle: flowState.drop.topic.name,
+        });
         setShareDisplayName(profile.displayName);
         setShareState("choices");
       } catch {
@@ -483,14 +598,14 @@ function DropFlowInner({
 
   const saveJourney = () => {
     if (!profile) {
-      openAuthSheet("save");
+      openAuthSheet(challenger ? "compare" : "save");
       return;
     }
 
-    completeAuthenticatedAction("save");
+    completeAuthenticatedAction(challenger ? "compare" : "save");
   };
 
-  const copyInvite = () => {
+  function copyInvite() {
     if (!shareMessage) {
       setError("Could not copy that invite. Please try again.");
       return;
@@ -504,9 +619,9 @@ function DropFlowInner({
         setError("Could not copy that invite. Please try again.");
       }
     });
-  };
+  }
 
-  const openWhatsApp = () => {
+  function openWhatsApp() {
     if (!shareMessage) {
       setError("Could not open WhatsApp. Please try again.");
       return;
@@ -515,7 +630,7 @@ function DropFlowInner({
     window.location.href = `https://wa.me/?text=${encodeURIComponent(
       shareMessage,
     )}`;
-  };
+  }
 
   if (!attemptState) {
     if (challenger) {
@@ -883,6 +998,8 @@ function HomeScreen({
   onGoogleSignIn,
   onOpenAccount,
   onOpenDrop,
+  onOpenPair,
+  pairs,
   profile,
   showGoogleSignIn,
   totalCount,
@@ -894,6 +1011,8 @@ function HomeScreen({
   onGoogleSignIn: () => void;
   onOpenAccount?: () => void;
   onOpenDrop: (dropId: string, status: HomeDropStatus) => void;
+  onOpenPair: (pairId: Id<"knowledgePairs">) => void;
+  pairs: PairSummary[];
   profile: Profile | null;
   showGoogleSignIn: boolean;
   totalCount: number;
@@ -963,6 +1082,34 @@ function HomeScreen({
             No challenge is available right now.
           </h2>
         )}
+        {pairs.length > 0 ? (
+          <section className="mx-auto mb-6 w-full max-w-5xl border-t border-[#fff8e8]/10 pt-5">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8fb7c9]">
+              With people
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {pairs.map((pair) => (
+                <button
+                  className="rounded-2xl border border-[#fff8e8]/14 bg-[#fff8e8]/8 p-4 text-left transition hover:border-[#f2c184]/55 focus:outline-none focus:ring-4 focus:ring-[#f2c184]/30"
+                  disabled={disabled}
+                  key={pair.id}
+                  onClick={() => onOpenPair(pair.id)}
+                  type="button"
+                >
+                  <p className="text-lg font-semibold text-[#fff8e8]">
+                    You & {pair.otherProfile.displayName}
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-[#c9c0ad]">
+                    {pair.sharedExplorationCount} shared{" "}
+                    {pair.sharedExplorationCount === 1
+                      ? "exploration"
+                      : "explorations"}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
         {showGoogleSignIn ? (
           <button
             className="mx-auto mb-4 min-h-12 w-full max-w-md text-base font-semibold text-[#f2c184] underline-offset-4 hover:underline disabled:opacity-60"
@@ -1489,6 +1636,13 @@ function ResultScreen({
               You {score}/{total} | {challenger?.displayName}{" "}
               {challenger?.result.score}/{challenger?.result.total}
             </p>
+            {challenger?.overlap ? (
+              <OverlapGrid
+                className="mt-5 max-w-xl"
+                otherName={challenger.displayName}
+                overlap={challenger.overlap}
+              />
+            ) : null}
           </>
         ) : (
           <p className="mt-6 max-w-md text-2xl leading-9 text-[#e7dcc8]">
@@ -1579,7 +1733,9 @@ function ResultScreen({
           {!isAuthenticated ? (
             <div className="mt-6 border-t border-[#fff8e8]/12 pt-5">
               <p className="text-sm font-medium text-[#c9c0ad]">
-                Keep your {drop.topic.name} progress across devices.
+                {challenger
+                  ? `Save this comparison and see what you discover differently from ${challenger.displayName}.`
+                  : `Keep your ${drop.topic.name} progress across devices.`}
               </p>
               <button
                 className="mt-2 text-base font-semibold text-[#f2c184] underline-offset-4 hover:underline disabled:opacity-60"
@@ -1587,7 +1743,9 @@ function ResultScreen({
                 onClick={onSaveJourney}
                 type="button"
               >
-                Save my journey
+                {challenger
+                  ? `Keep comparing with ${challenger.displayName}`
+                  : "Save my journey"}
               </button>
             </div>
           ) : null}
@@ -1608,6 +1766,239 @@ function ResultScreen({
   );
 }
 
+function PairScreen({
+  disabled,
+  error,
+  onBackToHome,
+  onChallengeDrop,
+  pair,
+}: {
+  disabled: boolean;
+  error: string | null;
+  onBackToHome: () => void;
+  onChallengeDrop: (summary: PairDropSummary) => void;
+  pair: PairState | null;
+}) {
+  if (!pair) {
+    return (
+      <main className="relative min-h-screen overflow-hidden bg-[#101114] px-5 py-8 text-[#fff8e8]">
+        <WorldAtmosphere />
+        <section className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#f2c184]">
+            Did You Know?
+          </p>
+          <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-normal">
+            This comparison is not available.
+          </h1>
+          <button
+            className="mt-8 min-h-14 w-full rounded-full bg-[#f2c184] px-5 text-base font-bold text-[#101114]"
+            onClick={onBackToHome}
+            type="button"
+          >
+            Back to Home
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  const sharedDrops = pair.drops.filter((summary) => summary.overlap);
+  const challengeableDrops = pair.drops.filter(
+    (summary) => summary.myScore !== null && summary.theirScore === null,
+  );
+  const theirOnlyDrops = pair.drops.filter(
+    (summary) => summary.myScore === null && summary.theirScore !== null,
+  );
+
+  return (
+    <main className="relative min-h-screen overflow-hidden bg-[#101114] px-5 py-7 text-[#fff8e8]">
+      <WorldAtmosphere />
+      <section className="relative z-10 mx-auto w-full max-w-5xl py-8">
+        <button
+          className="mb-8 text-sm font-bold text-[#f2c184] underline-offset-4 hover:underline"
+          disabled={disabled}
+          onClick={onBackToHome}
+          type="button"
+        >
+          Back to Home
+        </button>
+        <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#8fb7c9]">
+          Knowledge between us
+        </p>
+        <h1 className="mt-4 text-5xl font-semibold leading-none tracking-normal text-[#fff8e8] sm:text-7xl">
+          You & {pair.otherProfile.displayName}
+        </h1>
+        <p className="mt-5 max-w-2xl text-xl leading-8 text-[#c9c0ad]">
+          {sharedDrops.length} shared{" "}
+          {sharedDrops.length === 1 ? "exploration" : "explorations"} so far.
+          See where your answers overlapped and where they differed.
+        </p>
+
+        <div className="mt-10 grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
+          <div className="space-y-4">
+            {pair.drops.map((summary) => (
+              <PairDropCard
+                disabled={disabled}
+                key={summary.drop.id}
+                onChallengeDrop={onChallengeDrop}
+                otherName={pair.otherProfile.displayName}
+                summary={summary}
+              />
+            ))}
+          </div>
+          <aside className="rounded-[2rem] border border-[#fff8e8]/14 bg-[#fff8e8]/8 p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#f2c184]">
+              Next spark
+            </p>
+            {challengeableDrops[0] ? (
+              <>
+                <h2 className="mt-3 text-2xl font-semibold leading-tight">
+                  {pair.otherProfile.displayName} has not explored{" "}
+                  {challengeableDrops[0].drop.title} yet.
+                </h2>
+                <button
+                  className="mt-5 min-h-12 w-full rounded-full bg-[#fff8e8] px-4 text-base font-bold text-[#101114] transition hover:bg-white disabled:opacity-60"
+                  disabled={disabled}
+                  onClick={() => onChallengeDrop(challengeableDrops[0])}
+                  type="button"
+                >
+                  Challenge {pair.otherProfile.displayName}
+                </button>
+              </>
+            ) : theirOnlyDrops[0] ? (
+              <>
+                <h2 className="mt-3 text-2xl font-semibold leading-tight">
+                  {pair.otherProfile.displayName} explored{" "}
+                  {theirOnlyDrops[0].drop.title}.
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-[#c9c0ad]">
+                  Explore it from Home to add another comparison.
+                </p>
+              </>
+            ) : (
+              <p className="mt-3 text-base leading-7 text-[#c9c0ad]">
+                Explore another Drop, then challenge{" "}
+                {pair.otherProfile.displayName} to keep building this
+                comparison.
+              </p>
+            )}
+          </aside>
+        </div>
+        {error ? <p className="mt-5 text-sm text-red-700">{error}</p> : null}
+      </section>
+    </main>
+  );
+}
+
+function PairDropCard({
+  disabled,
+  onChallengeDrop,
+  otherName,
+  summary,
+}: {
+  disabled: boolean;
+  onChallengeDrop: (summary: PairDropSummary) => void;
+  otherName: string;
+  summary: PairDropSummary;
+}) {
+  const theme = getTerritoryTheme(summary.drop.experience.visualIdentity);
+
+  return (
+    <section
+      className="rounded-[2rem] border border-[#fff8e8]/14 bg-[#fff8e8]/8 p-5"
+      style={{ "--accent": theme.accent } as CSSProperties}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--accent)]">
+            {summary.drop.topic.name}
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold leading-tight">
+            {summary.drop.title}
+          </h2>
+          <p className="mt-2 text-sm font-semibold text-[#c9c0ad]">
+            {summary.drop.area.name}
+          </p>
+        </div>
+        <ArtworkSignal
+          artworkId={summary.drop.experience.visualIdentity.artwork?.hero}
+          theme={theme}
+        />
+      </div>
+
+      {summary.overlap ? (
+        <>
+          <p className="mt-5 text-lg font-semibold">
+            You {summary.myScore}/{summary.total} | {otherName}{" "}
+            {summary.theirScore}/{summary.total}
+          </p>
+          <OverlapGrid
+            className="mt-4"
+            otherName={otherName}
+            overlap={summary.overlap}
+          />
+        </>
+      ) : summary.myScore !== null ? (
+        <div className="mt-5 rounded-3xl border border-[var(--accent)]/30 bg-[#101114]/45 p-4">
+          <p className="text-base font-semibold">
+            You explored this. {otherName} has not.
+          </p>
+          <button
+            className="mt-4 min-h-12 w-full rounded-full bg-[#fff8e8] px-4 text-base font-bold text-[#101114] transition hover:bg-white disabled:opacity-60"
+            disabled={disabled}
+            onClick={() => onChallengeDrop(summary)}
+            type="button"
+          >
+            Challenge {otherName}
+          </button>
+        </div>
+      ) : (
+        <div className="mt-5 rounded-3xl border border-[#fff8e8]/14 bg-[#101114]/45 p-4">
+          <p className="text-base font-semibold">
+            {otherName} explored this. You have not yet.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function OverlapGrid({
+  className = "",
+  otherName,
+  overlap,
+}: {
+  className?: string;
+  otherName: string;
+  overlap: AnswerOverlap;
+}) {
+  return (
+    <div className={`grid gap-2 sm:grid-cols-2 ${className}`}>
+      <OverlapTile label="Both knew" value={overlap.bothKnew} />
+      <OverlapTile
+        label={`You knew, ${otherName} missed`}
+        value={overlap.youKnewTheyMissed}
+      />
+      <OverlapTile
+        label={`${otherName} knew, you missed`}
+        value={overlap.theyKnewYouMissed}
+      />
+      <OverlapTile label="Neither knew" value={overlap.neitherKnew} />
+    </div>
+  );
+}
+
+function OverlapTile({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-[#fff8e8]/12 bg-[#101114]/45 p-3">
+      <p className="text-2xl font-semibold text-[#fff8e8]">{value}</p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-[#c9c0ad]">
+        {label}
+      </p>
+    </div>
+  );
+}
+
 function AuthSheet({
   disabled,
   error,
@@ -1624,7 +2015,9 @@ function AuthSheet({
   const copy =
     purpose === "challenge"
       ? "Continue with Google so friends can see who challenged them."
-      : "Continue with Google to keep your scores across devices.";
+      : purpose === "compare"
+        ? "Continue with Google to keep this comparison and see what you discover differently."
+        : "Continue with Google to keep your scores across devices.";
 
   return (
     <Sheet onClose={onClose} title="Create your profile">
@@ -1907,6 +2300,14 @@ type Challenger = {
     score: number;
     total: number;
   };
+  overlap: AnswerOverlap | null;
+};
+
+type AnswerOverlap = {
+  bothKnew: number;
+  youKnewTheyMissed: number;
+  theyKnewYouMissed: number;
+  neitherKnew: number;
 };
 
 type HomeDropStatus = "unstarted" | "inProgress" | "completed";
@@ -1917,6 +2318,26 @@ type HomeDropSummary = {
   currentQuestionNumber: number | null;
   score: number | null;
   total: number;
+};
+
+type PairSummary = {
+  id: Id<"knowledgePairs">;
+  otherProfile: Profile;
+  sharedExplorationCount: number;
+};
+
+type PairDropSummary = {
+  drop: PublicDrop;
+  myScore: number | null;
+  theirScore: number | null;
+  total: number;
+  overlap: AnswerOverlap | null;
+};
+
+type PairState = {
+  id: Id<"knowledgePairs">;
+  otherProfile: Profile;
+  drops: PairDropSummary[];
 };
 
 type HomeTrail = {

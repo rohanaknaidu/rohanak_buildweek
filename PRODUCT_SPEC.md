@@ -3032,7 +3032,112 @@ Adding a genuinely new visual family or interaction primitive is a product/desig
 
 ---
 
-# 34. Next Section To Define
+# 34. M4 - Knowledge Between Us
+
+## CURRENT DIRECTION
+
+M4 turns Challenge from social distribution into persistent social knowledge.
+
+Milestone:
+
+`A direct Challenge can create a lasting knowledge relationship between two authenticated Profiles.`
+
+Lifecycle:
+
+1. Authenticated A completes a Drop.
+2. A challenges B.
+3. B can play anonymously and receives the full challenged Result.
+4. B chooses `Keep comparing with A`.
+5. B authenticates.
+6. B's challenged Attempt is claimed into B's Profile.
+7. The app creates or reuses the symmetric `A & B` knowledge pair.
+8. B lands on `You & A`, not generic Home.
+
+The pair is born from a direct Challenge only after both people are identified.
+Opening a link alone does not create a durable relationship.
+
+## M4 Product Rules
+
+The persistent object is not platform friendship.
+
+User-facing language may say `You & Hira`.
+
+Internally, this is a knowledge pair / relationship:
+
+* symmetric: `A <-> B`;
+* created from a directional Challenge;
+* derived from canonical Profile Attempts and Answers.
+
+Persist the relationship. Derive comparisons.
+
+Do not persist:
+
+* scores;
+* wins;
+* topic strengths;
+* inferred expertise;
+* question-overlap summaries.
+
+Question-level comparison compares correctness only:
+
+* both knew;
+* you knew, they missed;
+* they knew, you missed;
+* neither knew.
+
+If both people selected different wrong answers, that still counts as `neither knew`.
+
+## M4 Privacy Rule
+
+A pair comparison may only be queried by an authenticated Profile that belongs to
+that pair.
+
+The client must not be able to ask for arbitrary `Hira vs Varun` comparisons
+unless the current user is Hira or Varun.
+
+## M4 In Scope
+
+M4 may add:
+
+* one minimal `knowledgePairs` table;
+* pair creation/reuse after challenged-recipient authentication;
+* challenged Result question-overlap counts;
+* contextual auth copy: `Keep comparing with {challenger}`;
+* a lightweight `You & {name}` pair surface;
+* Home re-entry for existing pairs;
+* one next Challenge action when one person has explored a Drop and the other has not.
+
+## M4 Out Of Scope
+
+Do not add:
+
+* friend requests;
+* contact import;
+* people search;
+* feed;
+* chat;
+* notifications;
+* public profiles;
+* global leaderboard;
+* intelligence score;
+* inferred expertise labels;
+* XP / mastery / streaks;
+* replay / reset;
+* Knowledge Map;
+* recommendation engine;
+* AI.
+
+## M4 Acceptance Criterion
+
+After Hira challenges Rohanak once, Hira remains meaningful inside Rohanak's Did
+You Know? experience after the original Result screen is gone.
+
+The accumulated difference between Rohanak and Hira should create a natural
+reason for another Challenge.
+
+---
+
+# 35. Next Section To Define
 
 ## TODO - Concrete V1 User Journeys
 

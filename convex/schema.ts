@@ -58,4 +58,15 @@ export default defineSchema({
   })
     .index("by_inviter_profile_drop", ["inviterProfileId", "dropId"])
     .index("by_inviter_player_drop", ["inviterPlayerId", "dropId"]),
+
+  knowledgePairs: defineTable({
+    profileAId: v.id("profiles"),
+    profileBId: v.id("profiles"),
+    pairKey: v.string(),
+    createdFromInviteId: v.id("invites"),
+    createdAt: v.number(),
+  })
+    .index("by_pairKey", ["pairKey"])
+    .index("by_profileA", ["profileAId"])
+    .index("by_profileB", ["profileBId"]),
 });

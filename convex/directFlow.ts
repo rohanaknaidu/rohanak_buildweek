@@ -19,7 +19,14 @@ import { getDefaultPlayableDrop } from "../product/dropSelection";
 
 type AnswerDoc = Doc<"answers">;
 type InviteDoc = Doc<"invites">;
+type KnowledgePairDoc = Doc<"knowledgePairs">;
 type ProfileDoc = Doc<"profiles">;
+type InviteChallenger = {
+  profileId: Id<"profiles">;
+  displayName: string;
+  result: { score: number; total: number };
+  answers: AnswerDoc[];
+};
 
 async function getPlayerByLocalId(ctx: QueryCtx | MutationCtx, playerId: string) {
   return await ctx.db
@@ -186,6 +193,71 @@ async function getReusableInvite(
     .unique();
 }
 
+function getPairKey(profileAId: Id<"profiles">, profileBId: Id<"profiles">) {
+  return [profileAId, profileBId].sort().join(":");
+}
+
+function orderPairProfileIds(
+  profileAId: Id<"profiles">,
+  profileBId: Id<"profiles">,
+) {
+  return profileAId < profileBId
+    ? { profileAId, profileBId }
+    : { profileAId: profileBId, profileBId: profileAId };
+}
+
+async function getKnowledgePairByProfiles(
+  ctx: QueryCtx | MutationCtx,
+  profileAId: Id<"profiles">,
+  profileBId: Id<"profiles">,
+) {
+  return await ctx.db
+    .query("knowledgePairs")
+    .withIndex("by_pairKey", (q) => q.eq("pairKey", getPairKey(profileAId, profileBId)))
+    .unique();
+}
+
+async function ensureKnowledgePair({
+  ctx,
+  profileAId,
+  profileBId,
+  inviteId,
+}: {
+  ctx: MutationCtx;
+  profileAId: Id<"profiles">;
+  profileBId: Id<"profiles">;
+  inviteId: Id<"invites">;
+}) {
+  if (profileAId === profileBId) {
+    return null;
+  }
+
+  const existingPair = await getKnowledgePairByProfiles(
+    ctx,
+    profileAId,
+    profileBId,
+  );
+
+  if (existingPair) {
+    return existingPair;
+  }
+
+  const orderedIds = orderPairProfileIds(profileAId, profileBId);
+  const pairId = await ctx.db.insert("knowledgePairs", {
+    ...orderedIds,
+    pairKey: getPairKey(profileAId, profileBId),
+    createdFromInviteId: inviteId,
+    createdAt: Date.now(),
+  });
+  const pair = await ctx.db.get(pairId);
+
+  if (!pair) {
+    throw new Error("Knowledge pair could not be created.");
+  }
+
+  return pair;
+}
+
 async function claimAnonymousAttempts(
   ctx: MutationCtx,
   playerId: string,
@@ -225,6 +297,46 @@ function getScore(answers: AnswerDoc[]) {
   return answers.filter((answer) => answer.correct).length;
 }
 
+function getCorrectnessByQuestionId(answers: AnswerDoc[]) {
+  return new Map(answers.map((answer) => [answer.questionId, answer.correct]));
+}
+
+function getAnswerOverlap({
+  drop,
+  myAnswers,
+  theirAnswers,
+}: {
+  drop: Drop;
+  myAnswers: AnswerDoc[];
+  theirAnswers: AnswerDoc[];
+}) {
+  const myCorrectness = getCorrectnessByQuestionId(myAnswers);
+  const theirCorrectness = getCorrectnessByQuestionId(theirAnswers);
+  const overlap = {
+    bothKnew: 0,
+    youKnewTheyMissed: 0,
+    theyKnewYouMissed: 0,
+    neitherKnew: 0,
+  };
+
+  for (const question of drop.questions) {
+    const iKnew = myCorrectness.get(question.id) === true;
+    const theyKnew = theirCorrectness.get(question.id) === true;
+
+    if (iKnew && theyKnew) {
+      overlap.bothKnew += 1;
+    } else if (iKnew) {
+      overlap.youKnewTheyMissed += 1;
+    } else if (theyKnew) {
+      overlap.theyKnewYouMissed += 1;
+    } else {
+      overlap.neitherKnew += 1;
+    }
+  }
+
+  return overlap;
+}
+
 function getPublicPlayer(player: Doc<"players"> | null) {
   if (!player) {
     return null;
@@ -247,6 +359,148 @@ function getPublicProfile(profile: ProfileDoc | null) {
   };
 }
 
+function getOtherProfileId(pair: KnowledgePairDoc, profileId: Id<"profiles">) {
+  if (pair.profileAId === profileId) {
+    return pair.profileBId;
+  }
+
+  if (pair.profileBId === profileId) {
+    return pair.profileAId;
+  }
+
+  return null;
+}
+
+async function getProfilePairs(ctx: QueryCtx, profileId: Id<"profiles">) {
+  const [asA, asB] = await Promise.all([
+    ctx.db
+      .query("knowledgePairs")
+      .withIndex("by_profileA", (q) => q.eq("profileAId", profileId))
+      .collect(),
+    ctx.db
+      .query("knowledgePairs")
+      .withIndex("by_profileB", (q) => q.eq("profileBId", profileId))
+      .collect(),
+  ]);
+
+  return [...asA, ...asB];
+}
+
+async function getCompletedProfileAttempts(
+  ctx: QueryCtx | MutationCtx,
+  profileId: Id<"profiles">,
+) {
+  const attempts = await ctx.db
+    .query("attempts")
+    .withIndex("by_profileId_dropId", (q) => q.eq("profileId", profileId))
+    .collect();
+
+  return attempts.filter((attempt) => attempt.stage === "result");
+}
+
+async function makePairSummary(
+  ctx: QueryCtx,
+  pair: KnowledgePairDoc,
+  currentProfile: ProfileDoc,
+) {
+  const otherProfileId = getOtherProfileId(pair, currentProfile._id);
+
+  if (!otherProfileId) {
+    return null;
+  }
+
+  const otherProfile = await ctx.db.get(otherProfileId);
+
+  if (!otherProfile) {
+    return null;
+  }
+
+  const [myAttempts, theirAttempts] = await Promise.all([
+    getCompletedProfileAttempts(ctx, currentProfile._id),
+    getCompletedProfileAttempts(ctx, otherProfile._id),
+  ]);
+  const theirDropIds = new Set(theirAttempts.map((attempt) => attempt.dropId));
+  const sharedExplorationCount = myAttempts.filter((attempt) =>
+    theirDropIds.has(attempt.dropId),
+  ).length;
+
+  return {
+    id: pair._id,
+    otherProfile: {
+      id: otherProfile._id,
+      displayName: otherProfile.displayName,
+      email: otherProfile.email,
+    },
+    sharedExplorationCount,
+  };
+}
+
+async function makePairDetail(
+  ctx: QueryCtx,
+  pair: KnowledgePairDoc,
+  currentProfile: ProfileDoc,
+) {
+  const otherProfileId = getOtherProfileId(pair, currentProfile._id);
+
+  if (!otherProfileId) {
+    return null;
+  }
+
+  const otherProfile = await ctx.db.get(otherProfileId);
+
+  if (!otherProfile) {
+    return null;
+  }
+
+  const [myAttempts, theirAttempts] = await Promise.all([
+    getCompletedProfileAttempts(ctx, currentProfile._id),
+    getCompletedProfileAttempts(ctx, otherProfile._id),
+  ]);
+  const myAttemptsByDropId = new Map(
+    myAttempts.map((attempt) => [attempt.dropId, attempt]),
+  );
+  const theirAttemptsByDropId = new Map(
+    theirAttempts.map((attempt) => [attempt.dropId, attempt]),
+  );
+
+  const dropSummaries = await Promise.all(
+    getLiveDrops().map(async (drop) => {
+      const myAttempt = myAttemptsByDropId.get(drop.id) ?? null;
+      const theirAttempt = theirAttemptsByDropId.get(drop.id) ?? null;
+
+      if (!myAttempt && !theirAttempt) {
+        return null;
+      }
+
+      const [myAnswers, theirAnswers] = await Promise.all([
+        myAttempt ? getAnswers(ctx, myAttempt._id) : Promise.resolve([]),
+        theirAttempt ? getAnswers(ctx, theirAttempt._id) : Promise.resolve([]),
+      ]);
+
+      return {
+        drop: toPublicDrop(drop),
+        myScore: myAttempt ? getScore(myAnswers) : null,
+        theirScore: theirAttempt ? getScore(theirAnswers) : null,
+        total: drop.questions.length,
+        overlap:
+          myAttempt && theirAttempt
+            ? getAnswerOverlap({ drop, myAnswers, theirAnswers })
+            : null,
+      };
+    }),
+  );
+
+  return {
+    id: pair._id,
+    otherProfile: {
+      id: otherProfile._id,
+      displayName: otherProfile.displayName,
+      email: otherProfile.email,
+    },
+    drops: dropSummaries.filter((summary) => summary !== null),
+  };
+}
+
 function makeRevealPayload(answer: AnswerDoc) {
   const drop = getDrop(answer.dropId);
   if (!drop) {
@@ -265,6 +519,30 @@ function makeRevealPayload(answer: AnswerDoc) {
     correct: answer.correct,
     explanation: question.reveal.explanation,
     source: question.reveal.source,
+  };
+}
+
+function makePublicChallenger({
+  challenger,
+  currentAnswers,
+  drop,
+}: {
+  challenger: InviteChallenger;
+  currentAnswers?: AnswerDoc[];
+  drop?: Drop;
+}) {
+  return {
+    profileId: challenger.profileId,
+    displayName: challenger.displayName,
+    result: challenger.result,
+    overlap:
+      currentAnswers && drop
+        ? getAnswerOverlap({
+            drop,
+            myAnswers: currentAnswers,
+            theirAnswers: challenger.answers,
+          })
+        : null,
   };
 }
 
@@ -358,6 +636,7 @@ async function getInviteContext(ctx: QueryCtx | MutationCtx, inviteId: string) {
         score: getScore(inviterAnswers),
         total: drop.questions.length,
       },
+      answers: inviterAnswers,
     },
   };
 }
@@ -373,11 +652,7 @@ async function getFlowPayload({
   playerId: string;
   dropId: string;
   invite: InviteDoc | null;
-  challenger: {
-    profileId: Id<"profiles">;
-    displayName: string;
-    result: { score: number; total: number };
-  } | null;
+  challenger: InviteChallenger | null;
 }) {
   const drop = getDrop(dropId);
 
@@ -409,7 +684,7 @@ async function getFlowPayload({
       profile: getPublicProfile(profile),
       attemptState: null,
       invite: invite ? { id: invite._id } : null,
-      challenger,
+      challenger: challenger ? makePublicChallenger({ challenger }) : null,
       trailContext: toPublicTrailContext(getTrailContextForDrop(drop.id)),
     };
   }
@@ -422,7 +697,13 @@ async function getFlowPayload({
     profile: getPublicProfile(profile),
     attemptState: getAttemptPayload(attempt, answers),
     invite: invite ? { id: invite._id } : null,
-    challenger,
+    challenger: challenger
+      ? makePublicChallenger({
+          challenger,
+          currentAnswers: attempt.stage === "result" ? answers : undefined,
+          drop,
+        })
+      : null,
     trailContext: toPublicTrailContext(getTrailContextForDrop(drop.id)),
   };
 }
@@ -524,6 +805,15 @@ export const getHomeState = query({
       }),
     );
     const dropSummaries = trailSummaries.flatMap((trail) => trail.drops);
+    const pairSummaries = profile
+      ? (
+          await Promise.all(
+            (await getProfilePairs(ctx, profile._id)).map((pair) =>
+              makePairSummary(ctx, pair, profile),
+            ),
+          )
+        ).filter((summary) => summary !== null)
+      : [];
 
     return {
       trails: trailSummaries,
@@ -533,7 +823,29 @@ export const getHomeState = query({
       totalCount: dropSummaries.length,
       player: getPublicPlayer(player),
       profile: getPublicProfile(profile),
+      pairs: pairSummaries,
     };
+  },
+});
+
+export const getPairState = query({
+  args: {
+    pairId: v.id("knowledgePairs"),
+  },
+  handler: async (ctx, args) => {
+    const profile = await getCurrentProfile(ctx);
+
+    if (!profile) {
+      return null;
+    }
+
+    const pair = await ctx.db.get(args.pairId);
+
+    if (!pair || !getOtherProfileId(pair, profile._id)) {
+      return null;
+    }
+
+    return await makePairDetail(ctx, pair, profile);
   },
 });
 
@@ -573,15 +885,37 @@ export const getInviteFlowState = query({
 export const ensureProfileAndClaim = mutation({
   args: {
     playerId: v.string(),
+    pairFromInviteId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await ensurePlayer(ctx, args.playerId);
     const profile = await ensureProfile(ctx);
     const claimedCount = await claimAnonymousAttempts(ctx, args.playerId, profile);
+    const inviteContext = args.pairFromInviteId
+      ? await getInviteContext(ctx, args.pairFromInviteId)
+      : null;
+    const pair =
+      inviteContext && inviteContext.challenger.profileId !== profile._id
+        ? await ensureKnowledgePair({
+            ctx,
+            profileAId: profile._id,
+            profileBId: inviteContext.challenger.profileId,
+            inviteId: inviteContext.invite._id,
+          })
+        : null;
 
     return {
       profile: getPublicProfile(profile),
       claimedCount,
+      pair: pair
+        ? {
+            id: pair._id,
+            otherProfile: {
+              id: inviteContext?.challenger.profileId,
+              displayName: inviteContext?.challenger.displayName,
+            },
+          }
+        : null,
     };
   },
 });
