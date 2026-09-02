@@ -3166,6 +3166,27 @@ should show the actual discovery moments behind the difference:
 This must remain specific to Drops and Questions. Do not generalize into
 expertise labels or intelligence claims.
 
+## M4.1 Challenged Result Hierarchy
+
+A challenged Result has one primary job:
+
+`turn the completed Challenge into a persistent knowledge relationship.`
+
+For challenged Results, order the page around:
+
+1. what was compared: Topic / Area / Drop title;
+2. how the recipient compared with the Challenger;
+3. what each person knew differently;
+4. preserving or opening `You & {challenger}`;
+5. continuing curiosity through the next Trail bridge;
+6. challenging someone else;
+7. quiet escape to Home.
+
+Trail continuation and onward Challenge remain available, but they must not
+visually outrank the relationship action on challenged Results.
+
+For direct/Home Results, Trail continuation may remain the primary next action.
+
 ---
 
 # 35. Next Section To Define

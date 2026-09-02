@@ -585,18 +585,32 @@ function makeRevealPayload(answer: AnswerDoc) {
   };
 }
 
-function makePublicChallenger({
+async function makePublicChallenger({
+  ctx,
   challenger,
   currentAnswers,
+  currentProfile,
   drop,
 }: {
+  ctx: QueryCtx | MutationCtx;
   challenger: InviteChallenger;
   currentAnswers?: AnswerDoc[];
+  currentProfile: ProfileDoc | null;
   drop?: Drop;
 }) {
+  const existingPair =
+    currentProfile && currentProfile._id !== challenger.profileId
+      ? await getKnowledgePairByProfiles(
+          ctx,
+          currentProfile._id,
+          challenger.profileId,
+        )
+      : null;
+
   return {
     profileId: challenger.profileId,
     displayName: challenger.displayName,
+    pairId: existingPair?._id ?? null,
     result: challenger.result,
     overlap:
       currentAnswers && drop
@@ -741,16 +755,22 @@ async function getFlowPayload({
   });
 
   if (!attempt) {
-    return {
-      drop: toPublicDrop(drop),
-      player: getPublicPlayer(player),
-      profile: getPublicProfile(profile),
-      attemptState: null,
-      invite: invite ? { id: invite._id } : null,
-      challenger: challenger ? makePublicChallenger({ challenger }) : null,
-      trailContext: toPublicTrailContext(getTrailContextForDrop(drop.id)),
-    };
-  }
+      return {
+        drop: toPublicDrop(drop),
+        player: getPublicPlayer(player),
+        profile: getPublicProfile(profile),
+        attemptState: null,
+        invite: invite ? { id: invite._id } : null,
+        challenger: challenger
+          ? await makePublicChallenger({
+              ctx,
+              challenger,
+              currentProfile: profile,
+            })
+          : null,
+        trailContext: toPublicTrailContext(getTrailContextForDrop(drop.id)),
+      };
+    }
 
   const answers = await getAnswers(ctx, attempt._id);
 
@@ -761,9 +781,11 @@ async function getFlowPayload({
     attemptState: getAttemptPayload(attempt, answers),
     invite: invite ? { id: invite._id } : null,
     challenger: challenger
-      ? makePublicChallenger({
+      ? await makePublicChallenger({
+          ctx,
           challenger,
           currentAnswers: attempt.stage === "result" ? answers : undefined,
+          currentProfile: profile,
           drop,
         })
       : null,

@@ -597,6 +597,13 @@ function DropFlowInner({
   };
 
   const saveJourney = () => {
+    if (profile && challenger?.pairId) {
+      setError(null);
+      setShareState("closed");
+      setActivePairId(challenger.pairId);
+      return;
+    }
+
     if (!profile) {
       openAuthSheet(challenger ? "compare" : "save");
       return;
@@ -1603,6 +1610,169 @@ function ResultScreen({
       : `Think someone can beat your ${score}/${total}?`;
   const comparison = challenger ? getComparisonCopy(score, challenger) : null;
   const theme = getTerritoryTheme(drop.experience.visualIdentity);
+  const nextBridge =
+    trailContext?.nextDrop && trailContext.trail.bridges
+      ? trailContext.trail.bridges[trailContext.position]
+      : null;
+  const socialActionLabel = challenger
+    ? !isAuthenticated
+      ? `Keep comparing with ${challenger.displayName}`
+      : challenger.pairId
+        ? `See You & ${challenger.displayName}`
+        : `Save this comparison with ${challenger.displayName}`
+    : "Save my journey";
+
+  if (challenger) {
+    return (
+      <main
+        className="relative min-h-screen overflow-hidden bg-[#101114] px-5 py-7 text-[#fff8e8]"
+        style={{ "--accent": theme.accent } as CSSProperties}
+      >
+        <WorldAtmosphere theme={theme} />
+        <section className="relative z-10 mx-auto grid min-h-[calc(100vh-3.5rem)] w-full max-w-5xl gap-8 lg:grid-cols-[1.08fr_0.82fr] lg:items-center">
+          <div>
+            {profile && onOpenAccount ? (
+              <div className="mb-8 flex justify-end lg:hidden">
+                <AccountChip
+                  disabled={disabled}
+                  onClick={onOpenAccount}
+                  profileName={profile.displayName}
+                />
+              </div>
+            ) : null}
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--accent)]">
+              {drop.topic.name} / {drop.area.name}
+            </p>
+            <h1 className="mt-4 max-w-2xl text-4xl font-semibold leading-tight tracking-normal text-[#fff8e8] sm:text-5xl">
+              {drop.title}
+            </h1>
+            <div className="mt-8 flex flex-wrap items-end gap-x-6 gap-y-3">
+              <p className="text-8xl font-semibold leading-none tracking-normal text-[#fff8e8] sm:text-9xl">
+                {score}/{total}
+              </p>
+              <div className="pb-2">
+                <p className="text-2xl font-semibold leading-tight text-[#fff8e8] sm:text-3xl">
+                  {comparison?.headline}
+                </p>
+                <p className="mt-2 text-base font-semibold text-[#c9c0ad]">
+                  You {score}/{total} · {challenger.displayName}{" "}
+                  {challenger.result.score}/{challenger.result.total}
+                </p>
+              </div>
+            </div>
+
+            {challenger.overlap ? (
+              <section className="mt-8">
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8fb7c9]">
+                  What you knew differently
+                </p>
+                <DifferenceDiscoveries
+                  className="mt-4 max-w-2xl"
+                  otherName={challenger.displayName}
+                  overlap={challenger.overlap}
+                  variant="summary"
+                />
+                <div className="mt-4 rounded-3xl border border-[#fff8e8]/10 bg-[#fff8e8]/7 p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#c9c0ad]">
+                    Where you overlapped
+                  </p>
+                  <OverlapGrid
+                    className="mt-3 max-w-xl"
+                    otherName={challenger.displayName}
+                    overlap={challenger.overlap}
+                    variant="compact"
+                  />
+                </div>
+              </section>
+            ) : null}
+          </div>
+
+          <aside className="rounded-[2rem] border border-[#fff8e8]/14 bg-[#fff8e8]/8 p-5 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--accent)]">
+                  You & {challenger.displayName}
+                </p>
+                <h2 className="mt-3 text-3xl font-semibold leading-tight text-[#fff8e8]">
+                  Keep this comparison.
+                </h2>
+              </div>
+              <ArtworkSignal
+                artworkId={drop.experience.visualIdentity.artwork?.hero}
+                theme={theme}
+              />
+            </div>
+            <p className="text-base leading-7 text-[#c9c0ad]">
+              See what you discover differently as you both explore more of Did
+              You Know?.
+            </p>
+            <button
+              className="mt-6 min-h-14 w-full rounded-full bg-[#fff8e8] px-5 text-base font-bold text-[#101114] shadow-sm transition hover:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={disabled}
+              onClick={onSaveJourney}
+              type="button"
+            >
+              {socialActionLabel}
+            </button>
+
+            {trailContext?.nextDrop && onExploreNext ? (
+              <section className="mt-6 border-t border-[#fff8e8]/12 pt-5">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8fb7c9]">
+                  What does this make you wonder next?
+                </p>
+                <h3 className="mt-3 text-xl font-semibold leading-tight text-[#fff8e8]">
+                  {nextBridge ?? trailContext.nextDrop.title}
+                </h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#c9c0ad]">
+                  {trailContext.nextDrop.title}
+                </p>
+                <button
+                  className="mt-4 min-h-12 w-full rounded-full border border-[#fff8e8]/20 px-4 text-base font-bold text-[#fff8e8] transition hover:border-[#fff8e8]/45 hover:bg-[#fff8e8]/8 focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={disabled}
+                  onClick={onExploreNext}
+                  type="button"
+                >
+                  Explore next
+                </button>
+              </section>
+            ) : null}
+
+            <section className="mt-5 border-t border-[#fff8e8]/12 pt-5">
+              <p className="text-sm font-semibold leading-6 text-[#c9c0ad]">
+                {challengeCopy}
+              </p>
+              <button
+                className="mt-3 min-h-12 w-full rounded-full border border-[#fff8e8]/16 px-4 text-base font-bold text-[#f8f0df] transition hover:border-[#f2c184]/50 hover:bg-[#fff8e8]/8 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={disabled}
+                onClick={onChallenge}
+                type="button"
+              >
+                {disabled ? "Preparing..." : "Challenge someone else"}
+              </button>
+              <button
+                className="mt-3 min-h-11 w-full text-base font-bold text-[#f2c184] underline-offset-4 hover:underline disabled:opacity-70"
+                disabled={disabled}
+                onClick={onBackToHome}
+                type="button"
+              >
+                Back to Home
+              </button>
+            </section>
+
+            {journeySavedNotice ? (
+              <div className="mt-5 rounded-2xl border border-[#73d99f]/40 bg-[#73d99f]/12 p-4">
+                <p className="font-semibold text-[#dfffe9]">Journey saved</p>
+                <p className="mt-1 text-sm leading-6 text-[#c9c0ad]">
+                  Your progress is now connected to your Google account.
+                </p>
+              </div>
+            ) : null}
+            {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
+          </aside>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -1612,53 +1782,27 @@ function ResultScreen({
       <WorldAtmosphere theme={theme} />
       <section className="relative z-10 mx-auto grid min-h-[calc(100vh-3.5rem)] w-full max-w-5xl gap-8 lg:grid-cols-[0.95fr_1fr] lg:items-center">
         <div>
-        {profile && onOpenAccount ? (
-          <div className="mb-8 flex justify-end">
-            <AccountChip
-              disabled={disabled}
-              onClick={onOpenAccount}
-              profileName={profile.displayName}
-            />
-          </div>
-        ) : null}
-        <p className="text-xs font-bold uppercase tracking-[0.3em] text-[var(--accent)]">
-          Explored
-        </p>
-        <h1 className="mt-4 text-8xl font-semibold leading-none tracking-normal text-[#fff8e8] sm:text-9xl">
-          {score}/{total}
-        </h1>
-        {comparison ? (
-          <>
-            <p className="mt-6 text-3xl font-semibold leading-tight">
-              {comparison.headline}
-            </p>
-            <p className="mt-3 text-base font-semibold text-[#c9c0ad]">
-              You {score}/{total} | {challenger?.displayName}{" "}
-              {challenger?.result.score}/{challenger?.result.total}
-            </p>
-            {challenger?.overlap ? (
-              <>
-                <OverlapGrid
-                  className="mt-5 max-w-xl"
-                  otherName={challenger.displayName}
-                  overlap={challenger.overlap}
-                />
-                <DifferenceDiscoveries
-                  className="mt-4 max-w-xl"
-                  otherName={challenger.displayName}
-                  overlap={challenger.overlap}
-                />
-              </>
-            ) : null}
-          </>
-        ) : (
+          {profile && onOpenAccount ? (
+            <div className="mb-8 flex justify-end">
+              <AccountChip
+                disabled={disabled}
+                onClick={onOpenAccount}
+                profileName={profile.displayName}
+              />
+            </div>
+          ) : null}
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-[var(--accent)]">
+            Explored
+          </p>
+          <h1 className="mt-4 text-8xl font-semibold leading-none tracking-normal text-[#fff8e8] sm:text-9xl">
+            {score}/{total}
+          </h1>
           <p className="mt-6 max-w-md text-2xl leading-9 text-[#e7dcc8]">
             You knew {score} of {total} on this {drop.topic.name} challenge.
           </p>
-        )}
-        <p className="mt-6 max-w-md text-base font-semibold text-[#c9c0ad]">
-          {drop.title}
-        </p>
+          <p className="mt-6 max-w-md text-base font-semibold text-[#c9c0ad]">
+            {drop.title}
+          </p>
         </div>
         <div>
           <div className="rounded-[2rem] border border-[#fff8e8]/14 bg-[#fff8e8]/8 p-5 shadow-2xl">
@@ -1696,12 +1840,7 @@ function ResultScreen({
               {trailContext.nextDrop.area.name}
             </p>
             <button
-              className={[
-                "mt-5 min-h-12 w-full rounded-full px-4 text-base font-bold transition focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35 disabled:cursor-not-allowed disabled:opacity-60",
-                challenger
-                  ? "border border-[#fff8e8]/25 bg-[#fff8e8] text-[#101114] hover:bg-white"
-                  : "bg-[var(--accent)] text-[#101114] shadow-sm hover:brightness-110",
-              ].join(" ")}
+              className="mt-5 min-h-12 w-full rounded-full bg-[var(--accent)] px-4 text-base font-bold text-[#101114] shadow-sm transition hover:brightness-110 focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={disabled}
               onClick={onExploreNext}
               type="button"
@@ -1740,9 +1879,7 @@ function ResultScreen({
           {!isAuthenticated ? (
             <div className="mt-6 border-t border-[#fff8e8]/12 pt-5">
               <p className="text-sm font-medium text-[#c9c0ad]">
-                {challenger
-                  ? `Save this comparison and see what you discover differently from ${challenger.displayName}.`
-                  : `Keep your ${drop.topic.name} progress across devices.`}
+                Keep your {drop.topic.name} progress across devices.
               </p>
               <button
                 className="mt-2 text-base font-semibold text-[#f2c184] underline-offset-4 hover:underline disabled:opacity-60"
@@ -1750,9 +1887,7 @@ function ResultScreen({
                 onClick={onSaveJourney}
                 type="button"
               >
-                {challenger
-                  ? `Keep comparing with ${challenger.displayName}`
-                  : "Save my journey"}
+                Save my journey
               </button>
             </div>
           ) : null}
@@ -1979,11 +2114,28 @@ function OverlapGrid({
   className = "",
   otherName,
   overlap,
+  variant = "full",
 }: {
   className?: string;
   otherName: string;
   overlap: AnswerOverlap;
+  variant?: "compact" | "full";
 }) {
+  if (variant === "compact") {
+    return (
+      <div className={`grid gap-2 text-sm font-semibold text-[#c9c0ad] ${className}`}>
+        <p>
+          You both knew {overlap.bothKnew} · Neither knew{" "}
+          {overlap.neitherKnew}
+        </p>
+        <p className="text-[#fff8e8]">
+          You knew {overlap.youKnewTheyMissed} {otherName} missed ·{" "}
+          {otherName} knew {overlap.theyKnewYouMissed} you missed
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className={`grid gap-2 sm:grid-cols-2 ${className}`}>
       <OverlapTile label="Both knew" value={overlap.bothKnew} />
@@ -2004,10 +2156,12 @@ function DifferenceDiscoveries({
   className = "",
   otherName,
   overlap,
+  variant = "full",
 }: {
   className?: string;
   otherName: string;
   overlap: AnswerOverlap;
+  variant?: "full" | "summary";
 }) {
   const hasDifferences =
     overlap.youKnewTheyMissedDiscoveries.length > 0 ||
@@ -2022,10 +2176,12 @@ function DifferenceDiscoveries({
       <DiscoveryList
         discoveries={overlap.youKnewTheyMissedDiscoveries}
         title={`You knew this. ${otherName} didn't.`}
+        variant={variant}
       />
       <DiscoveryList
         discoveries={overlap.theyKnewYouMissedDiscoveries}
         title={`${otherName} knew this. You didn't.`}
+        variant={variant}
       />
     </div>
   );
@@ -2034,9 +2190,11 @@ function DifferenceDiscoveries({
 function DiscoveryList({
   discoveries,
   title,
+  variant = "full",
 }: {
   discoveries: AnswerDifference[];
   title: string;
+  variant?: "full" | "summary";
 }) {
   if (discoveries.length === 0) {
     return null;
@@ -2051,11 +2209,17 @@ function DiscoveryList({
         {discoveries.map((discovery) => (
           <article key={discovery.questionId}>
             <p className="text-sm font-semibold leading-6 text-[#fff8e8]">
-              {discovery.prompt}
+              {getDiscoverySummary(discovery)}
             </p>
-            <p className="mt-1 text-sm leading-6 text-[#c9c0ad]">
-              {discovery.explanation}
-            </p>
+            {variant === "full" ? (
+              <p className="mt-1 text-sm leading-6 text-[#c9c0ad]">
+                {discovery.explanation}
+              </p>
+            ) : (
+              <p className="mt-1 text-xs font-semibold leading-5 text-[#c9c0ad]">
+                From: {discovery.prompt}
+              </p>
+            )}
             <a
               className="mt-2 inline-flex text-xs font-bold uppercase tracking-[0.16em] text-[#8fb7c9] underline-offset-4 hover:underline"
               href={discovery.source.url}
@@ -2068,6 +2232,14 @@ function DiscoveryList({
         ))}
       </div>
     </section>
+  );
+}
+
+function getDiscoverySummary(discovery: AnswerDifference) {
+  return (
+    discovery.explanation.match(/^[^.!?]+[.!?]/)?.[0] ??
+    discovery.explanation ??
+    discovery.prompt
   );
 }
 
@@ -2379,6 +2551,7 @@ type Reveal = {
 type Challenger = {
   profileId: string;
   displayName: string;
+  pairId: Id<"knowledgePairs"> | null;
   result: {
     score: number;
     total: number;
