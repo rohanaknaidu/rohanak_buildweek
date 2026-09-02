@@ -17,7 +17,7 @@ import { api } from "../../convex/_generated/api";
 
 type PlayerIdState = "loading" | string;
 type ShareState = "closed" | "auth" | "choices";
-type SpaceView = "space" | "result";
+type PostResultView = "home" | "result";
 type PendingAuthAction = "challenge" | "save";
 
 const playerIdStorageKey = "did-you-know.playerId";
@@ -156,7 +156,7 @@ function DropFlowInner({
   const [shareState, setShareState] = useState<ShareState>("closed");
   const [authPurpose, setAuthPurpose] =
     useState<PendingAuthAction>("challenge");
-  const [spaceView, setSpaceView] = useState<SpaceView>("space");
+  const [postResultView, setPostResultView] = useState<PostResultView>("home");
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [shareDisplayName, setShareDisplayName] = useState<string | null>(null);
   const [claimedProfile, setClaimedProfile] = useState<Profile | null>(null);
@@ -199,10 +199,10 @@ function DropFlowInner({
             setShareDisplayName(claimResult.profile.displayName);
             await ensureInvite();
             setShareState("choices");
-            setSpaceView("result");
+            setPostResultView("result");
           } else {
             setShareState("closed");
-            setSpaceView("space");
+            setPostResultView("home");
           }
         } catch {
           setError("Could not finish sign-in. Please try again.");
@@ -226,7 +226,7 @@ function DropFlowInner({
         setClaimedProfile(null);
         setJourneySavedNotice(false);
         setIsAccountOpen(false);
-        setSpaceView("space");
+        setPostResultView("home");
         onPlayerIdRotated();
       } catch {
         setError("Could not sign out. Please try again.");
@@ -275,7 +275,7 @@ function DropFlowInner({
             Did You Know?
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-normal">
-            No Space challenge is live yet.
+            No challenge is available right now.
           </h1>
         </section>
       </main>
@@ -446,24 +446,24 @@ function DropFlowInner({
             onCopy={copyInvite}
             onWhatsApp={openWhatsApp}
             score={attemptState.result?.score ?? 0}
-            topicTitle={flowState.drop.topic.title}
+            topicTitle={flowState.drop.topic.name}
             total={flowState.drop.questionCount}
           />
         ) : null}
       </>
     );
 
-    if (!inviteId && spaceView === "space") {
+    if (!inviteId && postResultView === "home") {
       return (
         <>
-          <SpaceHomeScreen
+          <CaughtUpHomeScreen
             disabled={isPending}
             drop={flowState.drop}
             isAuthenticated={profile !== null}
             journeySavedNotice={journeySavedNotice}
             onOpenAccount={profile ? () => setIsAccountOpen(true) : undefined}
             onSaveJourney={saveJourney}
-            onViewResult={() => setSpaceView("result")}
+            onViewResult={() => setPostResultView("result")}
             profile={profile}
             score={attemptState.result?.score ?? 0}
             total={flowState.drop.questionCount}
@@ -491,7 +491,7 @@ function DropFlowInner({
           error={error}
           isAuthenticated={profile !== null}
           journeySavedNotice={journeySavedNotice}
-          onBackToSpace={() => setSpaceView("space")}
+          onBackToHome={() => setPostResultView("home")}
           onChallenge={openShareChoices}
           onOpenAccount={profile ? () => setIsAccountOpen(true) : undefined}
           onSaveJourney={saveJourney}
@@ -521,7 +521,7 @@ function DropFlowInner({
 
   return (
     <PlayScreen
-      areaTitle={flowState.drop.area.title}
+      areaTitle={flowState.drop.area.name}
       committedOptionId={
         committedAnswer?.questionId === question.id
           ? committedAnswer.optionId
@@ -532,7 +532,7 @@ function DropFlowInner({
       onContinue={() => {
         setError(null);
         if (attemptState.attempt.currentQuestionIndex === flowState.drop.questionCount - 1) {
-          setSpaceView("result");
+          setPostResultView("result");
         }
         startTransition(async () => {
           try {
@@ -612,7 +612,8 @@ function HomeScreen({
         </h1>
         <div className="mt-8 border-y border-[#d8cdbd] py-6">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#3b6b82]">
-            {drop.topic.title}
+            <span className="block text-xs text-[#7b6f60]">Topic</span>
+            <span>{drop.topic.name}</span>
           </p>
           <h2 className="mt-3 text-2xl font-semibold leading-snug">
             {drop.title}
@@ -670,7 +671,7 @@ function InviteLandingScreen({
           Did You Know?
         </p>
         <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-normal">
-          {challenger.displayName} challenged you on {drop.topic.title}
+          {challenger.displayName} challenged you on {drop.topic.name}
         </h1>
         <p className="mt-5 text-2xl font-semibold text-[#3b6b82]">
           {challenger.displayName} got {challenger.result.score}/
@@ -697,7 +698,7 @@ function InviteLandingScreen({
   );
 }
 
-function SpaceHomeScreen({
+function CaughtUpHomeScreen({
   drop,
   score,
   total,
@@ -736,7 +737,8 @@ function SpaceHomeScreen({
           Did You Know?
         </p>
         <p className="mt-5 text-sm font-semibold uppercase tracking-[0.18em] text-[#3b6b82]">
-          Space
+          <span className="block text-xs text-[#7b6f60]">Topic</span>
+          <span>{drop.topic.name}</span>
         </p>
         <h1 className="mt-3 text-4xl font-semibold leading-tight tracking-normal">
           You&apos;re caught up.
@@ -754,7 +756,9 @@ function SpaceHomeScreen({
         >
           View result
         </button>
-        <p className="mt-5 text-base text-[#6d6255]">More Space coming soon.</p>
+        <p className="mt-5 text-base text-[#6d6255]">
+          More to discover in {drop.topic.name} soon.
+        </p>
         {journeySavedNotice ? (
           <div className="mt-6 rounded-lg border border-[#b9d6c1] bg-[#eef8f1] p-4">
             <p className="font-semibold text-[#173d29]">Journey saved</p>
@@ -1018,7 +1022,7 @@ function ResultScreen({
   error,
   isAuthenticated,
   journeySavedNotice,
-  onBackToSpace,
+  onBackToHome,
   onChallenge,
   onOpenAccount,
   onSaveJourney,
@@ -1032,7 +1036,7 @@ function ResultScreen({
   error: string | null;
   isAuthenticated: boolean;
   journeySavedNotice: boolean;
-  onBackToSpace: () => void;
+  onBackToHome: () => void;
   onChallenge: () => void;
   onOpenAccount?: () => void;
   onSaveJourney: () => void;
@@ -1074,7 +1078,7 @@ function ResultScreen({
           </>
         ) : (
           <p className="mt-5 text-xl leading-8">
-            You knew {score} of {total} on this {drop.topic.title} challenge.
+            You knew {score} of {total} on this {drop.topic.name} challenge.
           </p>
         )}
         <p className="mt-5 text-base font-medium text-[#6d6255]">
@@ -1093,15 +1097,15 @@ function ResultScreen({
           <button
             className="mt-3 min-h-12 w-full text-base font-semibold text-[#3b6b82] underline-offset-4 hover:underline disabled:opacity-70"
             disabled={disabled}
-            onClick={onBackToSpace}
+            onClick={onBackToHome}
             type="button"
           >
-            Back to Space
+            Back to Home
           </button>
           {!isAuthenticated ? (
             <div className="mt-6 border-t border-[#d8cdbd] pt-5">
               <p className="text-sm font-medium text-[#6d6255]">
-                Keep your Space progress across devices.
+                Keep your {drop.topic.name} progress across devices.
               </p>
               <button
                 className="mt-2 text-base font-semibold text-[#3b6b82] underline-offset-4 hover:underline disabled:opacity-60"
@@ -1208,7 +1212,7 @@ function AccountSheet({
         </p>
       ) : null}
       <p className="mt-4 text-base leading-7 text-[#51483d]">
-        Your Space journey is saved to your profile.
+        Your progress is saved to your profile.
       </p>
       <button
         className="mt-5 min-h-12 w-full rounded-lg border border-[#b9ab98] bg-white px-5 text-base font-semibold text-[#221b14] shadow-sm transition hover:border-[#15262f] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9] disabled:cursor-not-allowed disabled:opacity-60"
@@ -1322,7 +1326,7 @@ function InvalidInviteScreen() {
           className="mt-8 flex min-h-14 w-full items-center justify-center rounded-lg bg-[#15262f] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#203946] focus:outline-none focus:ring-4 focus:ring-[#8fb7c9]"
           href="/"
         >
-          Play the latest Space challenge
+          Play the latest challenge
         </Link>
       </section>
     </main>
@@ -1370,14 +1374,14 @@ type PublicDrop = {
   id: string;
   topic: {
     id: string;
-    title: string;
+    name: string;
   };
   area: {
     id: string;
-    title: string;
+    name: string;
   };
   title: string;
-  teaser: string;
+  description: string;
   questionCount: number;
 };
 

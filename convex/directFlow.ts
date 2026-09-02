@@ -4,13 +4,12 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
-  getDropById,
-  getLiveDrop,
+  getDrop,
   getQuestionById,
-  isDropLive,
   toPublicDrop,
   toPublicQuestion,
-} from "../content/drops";
+} from "../content/registry";
+import { getDefaultPlayableDrop } from "../product/dropSelection";
 
 type AnswerDoc = Doc<"answers">;
 type InviteDoc = Doc<"invites">;
@@ -243,7 +242,7 @@ function getPublicProfile(profile: ProfileDoc | null) {
 }
 
 function makeRevealPayload(answer: AnswerDoc) {
-  const drop = getDropById(answer.dropId);
+  const drop = getDrop(answer.dropId);
   if (!drop) {
     throw new Error("Drop not found for answer.");
   }
@@ -282,7 +281,7 @@ function makeShareText({
 }
 
 function getAttemptPayload(attempt: Doc<"attempts">, answers: AnswerDoc[]) {
-  const drop = getDropById(attempt.dropId);
+  const drop = getDrop(attempt.dropId);
   if (!drop) {
     throw new Error("Drop not found for attempt.");
   }
@@ -322,9 +321,9 @@ async function getInviteContext(ctx: QueryCtx | MutationCtx, inviteId: string) {
     return null;
   }
 
-  const drop = getDropById(invite.dropId);
+  const drop = getDrop(invite.dropId);
 
-  if (!drop || !isDropLive(drop)) {
+  if (!drop || drop.status !== "live") {
     return null;
   }
 
@@ -377,7 +376,7 @@ async function getFlowPayload({
     result: { score: number; total: number };
   } | null;
 }) {
-  const drop = getDropById(dropId);
+  const drop = getDrop(dropId);
 
   if (!drop) {
     return {
@@ -427,7 +426,7 @@ export const getFlowState = query({
     playerId: v.string(),
   },
   handler: async (ctx, args) => {
-    const drop = getLiveDrop();
+    const drop = getDefaultPlayableDrop();
 
     if (!drop) {
       return {
@@ -513,7 +512,7 @@ export const startAttempt = mutation({
       throw new Error("This challenge link is not available.");
     }
 
-    const drop = inviteContext?.drop ?? getLiveDrop();
+    const drop = inviteContext?.drop ?? getDefaultPlayableDrop();
 
     if (!drop) {
       throw new Error("No live Drop is available.");
@@ -572,9 +571,9 @@ export const submitAnswer = mutation({
     selectedOptionId: v.string(),
   },
   handler: async (ctx, args) => {
-    const drop = getDropById(args.dropId);
+    const drop = getDrop(args.dropId);
 
-    if (!drop || !isDropLive(drop)) {
+    if (!drop || drop.status !== "live") {
       throw new Error("This Drop is not available.");
     }
 
@@ -665,9 +664,9 @@ export const continueAfterReveal = mutation({
     dropId: v.string(),
   },
   handler: async (ctx, args) => {
-    const drop = getDropById(args.dropId);
+    const drop = getDrop(args.dropId);
 
-    if (!drop || !isDropLive(drop)) {
+    if (!drop || drop.status !== "live") {
       throw new Error("This Drop is not available.");
     }
 
@@ -731,9 +730,9 @@ export const getOrCreateInvite = mutation({
     origin: v.string(),
   },
   handler: async (ctx, args) => {
-    const drop = getDropById(args.dropId);
+    const drop = getDrop(args.dropId);
 
-    if (!drop || !isDropLive(drop)) {
+    if (!drop || drop.status !== "live") {
       throw new Error("This Drop is not available.");
     }
 
@@ -766,7 +765,7 @@ export const getOrCreateInvite = mutation({
         message: makeShareText({
           score,
           total: drop.questions.length,
-          topicTitle: drop.topic.title,
+          topicTitle: drop.topic.name,
           inviteUrl,
         }),
       },
