@@ -765,8 +765,7 @@ function makeShareText({
   topicTitle: string;
   inviteUrl: string;
 }) {
-  const comparisonVerb = score === total ? "match" : "beat";
-  return `I got ${score}/${total} on this ${topicTitle} challenge. Think you can ${comparisonVerb} me? ${inviteUrl}`;
+  return `I got ${score}/${total} on this ${topicTitle} challenge. Curious what you'll know differently? ${inviteUrl}`;
 }
 
 function getAttemptPayload(attempt: Doc<"attempts">, answers: AnswerDoc[]) {

@@ -6,7 +6,7 @@ export const bodySpaceflightChanges001 = {
   areaId: "spaceflight",
   title: "What Happens to Your Body in Space?",
   description:
-    "Five quick challenges about what microgravity does to the human body.",
+    "A quick challenge about what microgravity does to the human body.",
   status: "live",
   releaseAt: "2026-09-02T18:30:00.000Z",
   releaseOrder: 3,

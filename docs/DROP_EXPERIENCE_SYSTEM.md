@@ -35,6 +35,10 @@ Every production Drop should include:
 * editorial metadata: `experience.centralIdea`, `experience.exitUnderstanding`;
 * visual identity: `experience.visualIdentity.family`, `experience.visualIdentity.motif`, optional semantic artwork IDs.
 
+Question count is determined by the Drop. The normal target is 5-7 Questions,
+roughly 4-9 is acceptable, and 10+ requires explicit editorial justification.
+Never add a weak Question merely to hit a target count.
+
 Visual identity selects from the product-owned vocabulary. It does not define raw colors, fonts, layouts, CSS, or animations.
 
 Generic rendering may switch on visual vocabulary keys only. It must not branch on Drop ID or Topic ID.
@@ -67,6 +71,7 @@ Content gate:
 
 * central idea is coherent;
 * every Question supports the Drop;
+* every Question earns its place; removing it would make the episode worse;
 * every `reveal.discovery` sentence stands alone, remains true outside the prompt, and is interesting enough to travel socially;
 * every Reveal is worth knowing even when answered correctly;
 * every claim has a source;

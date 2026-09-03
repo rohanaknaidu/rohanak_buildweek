@@ -5,7 +5,7 @@ export const spaceSolarSystemStrange001 = {
   topicId: "space",
   areaId: "solar-system",
   title: "How Strange Is Our Solar System?",
-  description: "Five quick questions about the surprising worlds closest to home.",
+  description: "A quick challenge about the surprising worlds closest to home.",
   status: "live",
   releaseAt: "2026-08-31T18:30:00.000Z",
   releaseOrder: 1,

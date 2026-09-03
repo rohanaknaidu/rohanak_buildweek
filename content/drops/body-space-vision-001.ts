@@ -6,7 +6,7 @@ export const bodySpaceVision001 = {
   areaId: "spaceflight",
   title: "Can Space Change How You See?",
   description:
-    "Five quick challenges about vision, pressure, balance, and adaptation after spaceflight.",
+    "A quick challenge about vision, pressure, balance, and adaptation after spaceflight.",
   status: "live",
   releaseAt: "2026-09-04T18:30:00.000Z",
   releaseOrder: 5,

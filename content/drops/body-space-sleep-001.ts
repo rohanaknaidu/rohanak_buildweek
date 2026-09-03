@@ -6,7 +6,7 @@ export const bodySpaceSleep001 = {
   areaId: "spaceflight",
   title: "Can You Sleep Normally in Space?",
   description:
-    "Five quick challenges about sleep, body clocks, light, noise, and fatigue in space.",
+    "A quick challenge about sleep, body clocks, light, noise, and fatigue in space.",
   status: "live",
   releaseAt: "2026-09-03T18:30:00.000Z",
   releaseOrder: 4,

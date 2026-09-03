@@ -9,6 +9,8 @@ Use this brief before adding or editing a Drop.
 * Drop title:
 * Short description:
 * Release timestamp:
+* Proposed question count:
+* Why this length:
 * Central idea:
 * What should the player understand differently after this Drop?
 
@@ -52,6 +54,8 @@ Repeat for each Question.
 
 * [ ] Content is plain serializable data.
 * [ ] The Drop works standalone from an Invite.
+* [ ] The Question count is justified by quality, not a fixed template.
+* [ ] Removing any selected Question would make the episode worse.
 * [ ] No answer has more than one defensible correct option.
 * [ ] Every Reveal is valuable even if the player answered correctly.
 * [ ] Every discovery sentence stands alone and is interesting enough for "You knew this; they missed this."

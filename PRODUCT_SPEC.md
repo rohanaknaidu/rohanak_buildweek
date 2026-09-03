@@ -206,13 +206,19 @@ Therefore:
 
 A **Drop** is one fixed, scheduled content release.
 
-M3 Drops currently ship with:
+Each Drop determines its own Question count.
 
-**5 curated Questions**
+The editorial rule is:
 
-That is an editorial product choice for the current short-form experience, not an engine invariant.
+* include as many Questions as the Drop needs to deliver its central idea well;
+* usually aim for 5-7 Questions;
+* roughly 4-9 Questions is normal;
+* 10+ Questions requires unusually strong editorial justification;
+* never add a weak Question merely to hit a target count.
 
-The product engine must derive the total Question count from the Drop content and support variable Question counts without changing play, Result, Invite, Profile, ownership, or generic Home logic.
+The product engine must derive the total Question count from the Drop content
+and support variable Question counts without changing play, Result, Invite,
+Profile, ownership, Pair, or generic Home logic.
 
 Example:
 
@@ -230,7 +236,7 @@ Drop:
 
 Questions:
 
-`5` for the current M3 editorial format; variable `N` at the product-engine level.
+`N`, derived from the authored Drop content.
 
 A Drop is the atomic unit of:
 
@@ -1859,6 +1865,7 @@ Source-controlled typed content is the canonical V1 source of truth for:
 * answer choices;
 * correct answers;
 * Reveals;
+* Discoveries;
 * sources;
 * release metadata.
 
@@ -1868,7 +1875,7 @@ A creator should eventually be able to:
 
 -> `fill metadata`
 
--> `add exactly 5 Questions`
+-> `add the Questions that earn their place`
 
 -> `add explanations`
 
@@ -2801,9 +2808,17 @@ Acceptance test:
 
 ## M3 Question Count Contract
 
-M3 Drops currently ship with 5 Questions as an editorial product choice.
+Question count is editorially determined per Drop.
 
 The product engine must derive total Question count from Drop content and support variable `N` without engine changes.
+
+Current editorial guidance:
+
+* 5-7 Questions is the normal target range;
+* 4-9 Questions is acceptable when the episode quality supports it;
+* 10+ Questions requires explicit editorial justification;
+* shorter is better than padded;
+* every Question should make the episode meaningfully better.
 
 Derive these from the resolved Drop:
 
@@ -2821,7 +2836,9 @@ Derive these from the resolved Drop:
 
 A Drop completes when its ordered Question set is exhausted.
 
-Do not change the M3 production Drops away from five Questions merely because the engine supports variable `N`.
+Do not change existing released Drop length merely for abstraction purity.
+Change a released Drop's Question set only when the content improvement is worth
+the historical-comparison/versioning tradeoff.
 
 ## M3 Trail Contract
 
