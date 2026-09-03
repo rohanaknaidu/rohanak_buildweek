@@ -2205,7 +2205,7 @@ function PairScreen({
                   {nextPairAction.drop.title}.
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-[#c9c0ad]">
-                  Explore it now to add another comparison.
+                  Explore it now to see what you know differently.
                 </p>
                 <button
                   className="mt-5 min-h-12 w-full rounded-full bg-[#fff8e8] px-4 text-base font-bold text-[#101114] transition hover:bg-white disabled:opacity-60"
@@ -2246,8 +2246,8 @@ function PairScreen({
                 ) : (
                   <p className="mt-3 text-base leading-7 text-[#c9c0ad]">
                     Explore another Drop, then challenge{" "}
-                    {pair.otherProfile.displayName} to keep building this
-                    comparison.
+                    {pair.otherProfile.displayName} to keep discovering
+                    differently.
                   </p>
                 )}
               </>

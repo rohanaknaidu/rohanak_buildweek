@@ -42,7 +42,8 @@ Repeat for each Question.
 
 * Prediction or misconception being tested:
 * Prompt:
-* Options:
+* Options, 2-4:
+* Why an intelligent person might choose each wrong option:
 * Correct answer:
 * Discovery sentence:
 * Reveal:
@@ -57,6 +58,8 @@ Repeat for each Question.
 * [ ] The Question count is justified by quality, not a fixed template.
 * [ ] Removing any selected Question would make the episode worse.
 * [ ] No answer has more than one defensible correct option.
+* [ ] Every wrong option represents a plausible misconception or alternate intuition, not filler.
+* [ ] The question creates a meaningful prediction before the Reveal.
 * [ ] Every Reveal is valuable even if the player answered correctly.
 * [ ] Every discovery sentence stands alone and is interesting enough for "You knew this; they missed this."
 * [ ] At least 3 discoveries are independently retellable.

@@ -638,7 +638,7 @@ Do not specify a fixed animation duration yet.
 
 V1 chooses direct commit because:
 
-* this is a casual five-Question social challenge, not an exam;
+* this is a short social knowledge challenge, not an exam;
 * the interaction should be fast and mobile-native;
 * a confirmation button doubles the number of answering actions;
 * immediate commitment creates a useful `guess -> consequence -> Reveal` rhythm.
@@ -710,7 +710,7 @@ Example intent:
 
 `How Strange Is Our Solar System?`
 
-`Think someone can beat your 3/5?`
+`Curious what someone else knows?`
 
 `Challenge a friend`
 
@@ -734,13 +734,13 @@ This baseline V1 challenged-Result contract is superseded by
 
 A **Challenged Result** is shown when the Player has a current direct Challenger comparison context.
 
-Default hierarchy:
+Historical baseline hierarchy:
 
 1. Player score;
 2. win / loss / tie against the direct Challenger;
 3. compact score comparison;
 4. Drop title;
-5. social provocation around the current Player's own Result;
+5. social provocation around what another person may know differently;
 6. `Challenge a friend`;
 7. `Back to Home`;
 8. quiet `Save my journey` prompt when the Player is anonymous.
@@ -777,7 +777,7 @@ Example win intent:
 
 `How Strange Is Our Solar System?`
 
-`Think someone can beat your 4/5?`
+`Curious what someone else knows?`
 
 `Challenge a friend`
 
@@ -791,35 +791,28 @@ Outgoing Invites always represent the current Player and their canonical Result,
 
 Do not imply that the Player is forwarding their Challenger's Result or Challenge on the Challenger's behalf.
 
-## Perfect Score Challenge Copy
+## Social Challenge Copy
 
 ### LOCKED
 
-A Player with a perfect score cannot logically ask someone else to beat that Result.
+This section is superseded by the social-knowledge framing introduced in M4/M5.
 
-For non-perfect scores, Result and Invite copy may use the semantic idea:
+Challenge copy should not primarily frame the product as score competition.
 
-`beat`
+Preferred semantic idea:
 
-Example Result intent:
-
-`Think someone can beat your 3/5?`
-
-Example Invite intent:
-
-`I got 3/5 on this Space challenge. Think you can beat me?`
-
-For a perfect score, Result and Invite copy should use the semantic idea:
-
-`match`
+`Curious what someone else knows?`
 
 Example Result intent:
 
-`Think someone can match your 5/5?`
+`Curious what someone else knows?`
 
 Example Invite intent:
 
-`I got 5/5 on this Space challenge. Think you can match me?`
+`I got 3/5 on this Space challenge. Curious what you'll know differently?`
+
+Score can still create initial tension, but Challenge should point toward
+knowledge differences, not proving who is smarter.
 
 Do not create elaborate copy variations for every score in V1.
 
@@ -965,19 +958,15 @@ Recommended semantic hierarchy:
 
 1. Challenger challenged the Player on the Topic;
 2. Challenger's Result;
-3. score-aware challenge prompt;
+3. social curiosity prompt;
 4. Drop title;
-5. `5 questions`;
+5. authored Question count;
 6. short immediate-learning promise;
 7. primary CTA semantically equivalent to `Take the challenge`.
 
-For Challenger scores `0-4/5`, the challenge prompt may use the semantic idea:
+The challenge prompt should use the semantic idea:
 
-`Can you beat that?`
-
-For Challenger score `5/5`, the challenge prompt should use the semantic idea:
-
-`Can you match that?`
+`What will you know differently?`
 
 Exact final copy and visual typography remain design decisions.
 
@@ -1271,7 +1260,7 @@ Example:
 
 `Rohanak got 3/5.`
 
-`Can you beat that?`
+`What will you know differently?`
 
 Do not show a large list of unrelated Players.
 
@@ -1502,7 +1491,7 @@ Desired sequence:
 
 -> `play`
 
--> `five Questions`
+-> `authored Questions`
 
 -> `Result`
 
@@ -1516,7 +1505,7 @@ At Result, the Player may:
 
 Do NOT ask for identity before playing.
 
-Do NOT require identity between Question 5 and Result.
+Do NOT require identity between the final Question and Result.
 
 Desired sequence:
 
@@ -1524,7 +1513,7 @@ Desired sequence:
 
 -> `start`
 
--> `five Questions`
+-> `authored Questions`
 
 -> `Result vs Challenger`
 
@@ -1749,7 +1738,7 @@ Bad:
 
 Evergreen default:
 
-`I got 4/5 on this Space challenge. Think you can beat me?`
+`I got 4/5 on this Space challenge. Curious what you'll know differently?`
 
 `[URL]`
 
@@ -2005,11 +1994,11 @@ This should be resolved from the actual UX journey.
 
 ## OPEN
 
-We have discussed a possible 30-60 second synthesis after completing the five Questions.
+We have discussed a possible 30-60 second synthesis after completing a Drop.
 
 Potential purpose:
 
-connect the five individual facts into a more coherent understanding of the Area.
+connect the individual discoveries into a more coherent understanding of the Area.
 
 However:
 
@@ -2320,10 +2309,10 @@ An anonymous new Player opens Did You Know?.
 
 Fresh Direct Home follows the locked Fresh Direct Home principles:
 
-* immediate Space challenge;
+* immediate latest released challenge;
 * light social promise;
 * current/latest released LIVE Drop title;
-* `5 questions`;
+* authored Question count;
 * `Play`.
 
 No identity is required.
@@ -2336,7 +2325,7 @@ Home proceeds directly into Question 1.
 
 There is no separate Drop-intro screen.
 
-## Steps 2-6 - Five Questions
+## Steps 2-6 - Authored Questions
 
 Use the locked Question State, Answer, and Reveal contracts.
 
@@ -2344,9 +2333,9 @@ The repeated flow is:
 
 `Question -> tap Answer -> Answer commits -> Reveal -> Next question`
 
-Repeat through Question 5.
+Repeat through the authored Question set.
 
-Question 5 Reveal ends with:
+The final Question Reveal ends with:
 
 `See result`
 
@@ -2439,19 +2428,17 @@ The Challenger has completed the Drop and has a reusable Invite.
 
 The recipient receives an Invite message through WhatsApp.
 
-For scores `0-4/5`, evergreen message intent:
+Evergreen message intent:
 
-`I got 3/5 on this Space challenge. Think you can beat me?`
+`I got 3/5 on this Space challenge. Curious what you'll know differently?`
 
 `[Invite URL]`
-
-For score `5/5`, use `match`, not `beat`.
 
 The message is:
 
 * first-person;
 * Topic-aware;
-* score-aware;
+* score-aware without making score competition the whole premise;
 * short;
 * non-promotional;
 * fixed and non-editable in V1.
@@ -2467,9 +2454,9 @@ Invite landing follows the locked Invite Landing hierarchy:
 * Challenger first;
 * Topic;
 * Challenger's Result;
-* score-aware challenge prompt;
+* social curiosity prompt;
 * Drop title;
-* `5 questions`;
+* authored Question count;
 * immediate-learning promise;
 * CTA semantically equivalent to `Take the challenge`.
 
@@ -2502,7 +2489,7 @@ When the recipient intentionally activates the Invite landing CTA:
 
 No separate Drop intro.
 
-## Steps 3-7 - Five Questions
+## Steps 3-7 - Authored Questions
 
 Use the existing locked Question State, Answer, and Reveal contracts unchanged.
 

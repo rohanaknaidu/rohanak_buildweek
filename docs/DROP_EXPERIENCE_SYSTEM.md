@@ -72,6 +72,8 @@ Content gate:
 * central idea is coherent;
 * every Question supports the Drop;
 * every Question earns its place; removing it would make the episode worse;
+* every Question creates a meaningful prediction rather than testing obscure vocabulary;
+* every distractor represents a plausible alternate belief, not filler;
 * every `reveal.discovery` sentence stands alone, remains true outside the prompt, and is interesting enough to travel socially;
 * every Reveal is worth knowing even when answered correctly;
 * every claim has a source;

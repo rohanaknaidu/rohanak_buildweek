@@ -11,7 +11,7 @@ export const trails = [
     id: "from-planets-to-people",
     title: "From Planets to People",
     description:
-      "Start with strange worlds, follow the force that moves them, then see what happens when human bodies leave Earth.",
+      "Start with strange worlds, follow the force that moves them, then trace the thread into bodies, perception, memory, and how people compare reality.",
     dropIds: [
       "space-solar-system-strange-001",
       "physics-gravity-strange-001",
