@@ -3188,6 +3188,31 @@ visually outrank the relationship action on challenged Results.
 
 For direct/Home Results, Trail continuation may remain the primary next action.
 
+## Future Trail Access Modes
+
+Current M3/M4 Trails are open/guided:
+
+* Trail order tells an editorial story.
+* Every LIVE Drop remains independently playable.
+* Every LIVE Drop remains independently challengeable.
+* A recipient may enter a later Trail Drop directly from an Invite.
+
+This is intentional for the current social-discovery product because frictionless
+Challenge entry matters.
+
+A future product may introduce sequential/prerequisite Trails for content where
+later Drops genuinely depend on earlier Drops. That would be a separate product
+decision, not an accidental consequence of Trail order.
+
+Possible future rule:
+
+* A Challenge may point at a later Drop.
+* If the recipient has unmet prerequisites, the recipient starts at the first
+  unmet prerequisite.
+* The original Challenge target is preserved as the eventual destination.
+
+Do not implement sequential gating until a specific Trail requires it.
+
 ---
 
 # 35. Next Section To Define

@@ -128,6 +128,11 @@ function makeAuthReturnPath({
   return `${path}?${params.toString()}`;
 }
 
+function makeDirectDropPath(dropId: string) {
+  const params = new URLSearchParams({ [dropIdSearchParam]: dropId });
+  return `/?${params.toString()}`;
+}
+
 function clearAuthReturnIntent() {
   window.localStorage.removeItem(pendingAuthActionStorageKey);
   window.localStorage.removeItem(activeDropStorageKey);
@@ -388,6 +393,38 @@ function DropFlowInner({
     [currentProfile, ensureInviteForDrop],
   );
 
+  const openPairDrop = useCallback(
+    (summary: PairDropSummary) => {
+      if (summary.myScore !== null) {
+        return;
+      }
+
+      const dropId = summary.drop.id;
+      setError(null);
+      setShareState("closed");
+      setActivePairId(null);
+      setActiveDropSelection({
+        dropId,
+        source: "user",
+      });
+      window.localStorage.setItem(activeDropStorageKey, dropId);
+
+      startTransition(async () => {
+        try {
+          await startAttempt({ playerId, dropId });
+          if (inviteId) {
+            router.push(makeDirectDropPath(dropId));
+          }
+        } catch {
+          setActiveDropSelection(null);
+          window.localStorage.removeItem(activeDropStorageKey);
+          setError("Could not start the challenge. Please try again.");
+        }
+      });
+    },
+    [inviteId, playerId, router, startAttempt],
+  );
+
   if (authLoading) {
     return <ShellLoading />;
   }
@@ -409,6 +446,7 @@ function DropFlowInner({
             }
           }}
           onChallengeDrop={openPairChallenge}
+          onExploreDrop={openPairDrop}
           pair={pairState}
         />
         {shareState === "choices" && shareContext ? (
@@ -697,6 +735,9 @@ function DropFlowInner({
           onBackToHome={() => {
             setActiveDropSelection(null);
             window.localStorage.removeItem(activeDropStorageKey);
+            if (inviteId) {
+              router.push("/");
+            }
           }}
           onChallenge={openShareChoices}
           onExploreNext={
@@ -716,6 +757,9 @@ function DropFlowInner({
                   startTransition(async () => {
                     try {
                       await startAttempt({ playerId, dropId: nextDropId });
+                      if (inviteId) {
+                        router.push(makeDirectDropPath(nextDropId));
+                      }
                     } catch {
                       setError(
                         "Could not start the next challenge. Please try again.",
@@ -1902,12 +1946,14 @@ function PairScreen({
   error,
   onBackToHome,
   onChallengeDrop,
+  onExploreDrop,
   pair,
 }: {
   disabled: boolean;
   error: string | null;
   onBackToHome: () => void;
   onChallengeDrop: (summary: PairDropSummary) => void;
+  onExploreDrop: (summary: PairDropSummary) => void;
   pair: PairState | null;
 }) {
   if (!pair) {
@@ -1968,13 +2014,14 @@ function PairScreen({
         <div className="mt-10 grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
           <div className="space-y-4">
             {pair.drops.map((summary) => (
-              <PairDropCard
-                disabled={disabled}
-                key={summary.drop.id}
-                onChallengeDrop={onChallengeDrop}
-                otherName={pair.otherProfile.displayName}
-                summary={summary}
-              />
+                <PairDropCard
+                  disabled={disabled}
+                  key={summary.drop.id}
+                  onChallengeDrop={onChallengeDrop}
+                  onExploreDrop={onExploreDrop}
+                  otherName={pair.otherProfile.displayName}
+                  summary={summary}
+                />
             ))}
           </div>
           <aside className="rounded-[2rem] border border-[#fff8e8]/14 bg-[#fff8e8]/8 p-5">
@@ -2003,8 +2050,16 @@ function PairScreen({
                   {theirOnlyDrops[0].drop.title}.
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-[#c9c0ad]">
-                  Explore it from Home to add another comparison.
+                  Explore it now to add another comparison.
                 </p>
+                <button
+                  className="mt-5 min-h-12 w-full rounded-full bg-[#fff8e8] px-4 text-base font-bold text-[#101114] transition hover:bg-white disabled:opacity-60"
+                  disabled={disabled}
+                  onClick={() => onExploreDrop(theirOnlyDrops[0])}
+                  type="button"
+                >
+                  Explore and compare
+                </button>
               </>
             ) : (
               <p className="mt-3 text-base leading-7 text-[#c9c0ad]">
@@ -2024,11 +2079,13 @@ function PairScreen({
 function PairDropCard({
   disabled,
   onChallengeDrop,
+  onExploreDrop,
   otherName,
   summary,
 }: {
   disabled: boolean;
   onChallengeDrop: (summary: PairDropSummary) => void;
+  onExploreDrop: (summary: PairDropSummary) => void;
   otherName: string;
   summary: PairDropSummary;
 }) {
@@ -2093,6 +2150,14 @@ function PairDropCard({
           <p className="text-base font-semibold">
             {otherName} explored this. You have not yet.
           </p>
+          <button
+            className="mt-4 min-h-12 w-full rounded-full bg-[#fff8e8] px-4 text-base font-bold text-[#101114] transition hover:bg-white disabled:opacity-60"
+            disabled={disabled}
+            onClick={() => onExploreDrop(summary)}
+            type="button"
+          >
+            Explore and compare
+          </button>
         </div>
       )}
     </section>
