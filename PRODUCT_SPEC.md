@@ -28,7 +28,47 @@ When implementation or further reasoning exposes an inconsistency, update this d
 
 # 1. Product Thesis
 
-## LOCKED
+## Current Product Contract
+
+### LOCKED
+
+Did You Know? turns surprising knowledge into a social object:
+
+`discover -> accumulate -> compare with people you know -> pass onward -> return when new knowledge arrives`
+
+Current system model:
+
+* A **Drop** is one curated, scheduled knowledge challenge.
+* A **Question** creates prediction / commitment.
+* A **Reveal** is the learning payoff.
+* An **Attempt** is the canonical play-through for one Player/Profile and one Drop.
+* An **Invite** lets a completed Drop move from one authenticated Profile to another person.
+* A **Trail** is editorial guidance through Drops, not a prerequisite graph.
+* A **knowledge pair** is a symmetric `You & {person}` relationship created from an intentional challenged-completion flow.
+* A **release** makes a Drop available over time and reactivates existing pairs.
+
+Current invariants:
+
+* Content remains plain serializable data.
+* Question count is derived from Drop content, not hardcoded to five.
+* The generic renderer may branch on visual vocabulary keys, never Drop ID or Topic ID.
+* Backend release checks use server time; upcoming Drops cannot be played or invited early.
+* Anonymous play remains possible for released open-Trail Drops.
+* Google Profile identity is required for durable progress, Challenge identity, and persistent knowledge pairs.
+* Friends see `displayName`, including full names when available; friends never see email.
+* Pair comparison is derived from canonical Attempts and Answers; do not persist scores or knowledge summaries.
+* Pair state is current truth, not notification/read state.
+* Current Trails are open/guided. Future prerequisite Trails are a separate product decision.
+* Replay/reset, feeds, friend requests, leaderboards, XP/streaks, AI recommendations, and CMS/admin tooling are out of scope for Build Week.
+
+Current open decisions:
+
+* **Anonymous access policy:** anonymous users can currently explore all released open-Trail Drops; whether to add soft or hard conversion limits later remains open.
+* **Trail access modes:** sequential/prerequisite Trails may exist later, but current Trails remain open/guided.
+* **Replay:** canonical first Attempt remains the only Attempt; a future replay model must preserve historical/social meaning.
+* **Pair list scaling:** no hard pair limit exists; future Home ranking should likely use current relevance rather than arbitrary caps.
+
+### Historical Thesis Language
 
 **Did You Know? is an asynchronous social knowledge game built around recurring curated knowledge challenges.**
 
@@ -116,7 +156,7 @@ Examples:
 * Economics
 * Cinema
 
-M3 production has multiple Topics represented through LIVE Drops.
+M3 production has multiple Topics represented through released LIVE Drops.
 
 **Space** is the first Topic, not the identity of the product.
 
@@ -674,11 +714,15 @@ Core Result semantics must work for any LIVE historical Drop.
 
 Language such as `this week's` may be used only when the Drop is genuinely the current/latest release.
 
-Do not hardcode `this week's` into Result copy that also serves older LIVE Drops.
+Do not hardcode `this week's` into Result copy that also serves older released
+LIVE Drops.
 
 ## Challenged Result
 
 ### LOCKED
+
+This baseline V1 challenged-Result contract is superseded by
+`M4.1 Challenged Result Hierarchy` where they conflict.
 
 A **Challenged Result** is shown when the Player has a current direct Challenger comparison context.
 
@@ -774,6 +818,10 @@ Do not create elaborate copy variations for every score in V1.
 ## Default Result Exclusions
 
 ### LOCKED
+
+These exclusions apply to the default pre-M5 Result surface. M5 deliberately
+allows upcoming release information on Result only when there is no released
+next Trail Drop and anticipation is the most valuable available action.
 
 Do not show these on the default V1 Result:
 
@@ -1705,7 +1753,8 @@ Core Invite semantics must work for any LIVE historical Drop.
 
 Language such as `this week's` may be used only when the Drop is genuinely the current/latest release.
 
-Do not hardcode `this week's` into Invite copy that also serves older LIVE Drops.
+Do not hardcode `this week's` into Invite copy that also serves older released
+LIVE Drops.
 
 Invite copy must follow the score-aware perfect-score rule:
 
@@ -2012,7 +2061,7 @@ It should:
 * show per-Drop exploration state;
 * lightly hint that the Result can become social;
 * avoid explaining the full Challenge mechanics;
-* let the Player choose any LIVE Drop in the visible Trail.
+* let the Player choose any released LIVE Drop in the visible Trail.
 
 `Drop` remains the canonical domain/content term, but a fresh Player does not need to understand that term before playing.
 
@@ -2022,12 +2071,12 @@ Required semantic hierarchy:
 2. a curiosity-led proposition such as `Follow a thread of curiosity`;
 3. visible Trail title / description;
 4. quiet explored count such as `1 of 3 explored`;
-5. LIVE Drop entries in Trail order;
+5. released LIVE Drop entries in Trail order;
 6. each Drop's Topic, Area, title, Question count, and state/action.
 
 Drop states on Home:
 
-* `Explore` for an unstarted LIVE Drop;
+* `Explore` for an unstarted released LIVE Drop;
 * `Continue - N/total questions` for an in-progress Drop;
 * `Explored - X/total correct` for a completed Drop.
 
@@ -2083,9 +2132,13 @@ It must not route a completed Player back into the same completed Result forever
 
 M3 supersedes the one-Drop caught-up Home with Guided Exploration Home.
 
-For a Player or Profile who has completed one LIVE Drop but not all LIVE Drops, Home should show that Drop as explored and leave the other visible Trail entries available.
+For a Player or Profile who has completed one released LIVE Drop but not all
+released LIVE Drops, Home should show that Drop as explored and leave the other
+visible Trail entries available.
 
-For a Player or Profile who has completed all currently visible LIVE Drops, Home may quietly communicate that the Player has explored the available Trail without introducing mastery, XP, streaks, leaderboard, or Knowledge Map claims.
+For a Player or Profile who has completed all currently released LIVE Drops,
+Home may quietly communicate that the Player has explored the available Trail
+without introducing mastery, XP, streaks, leaderboard, or Knowledge Map claims.
 
 For an anonymous Player, the minimal caught-up Home should also quietly communicate:
 
@@ -2164,8 +2217,8 @@ M3.0 established a content-scalability foundation without changing the user jour
 * Topic and Area are first-class source-controlled content records.
 * Drops reference Topic and Area by ID rather than embedding Space as generic app structure.
 * Space is current content, not the identity of Did You Know?.
-* Production currently still has exactly one LIVE Drop.
-* Direct Home currently selects the highest `releaseOrder` LIVE Drop as an explicit temporary M3.0 policy.
+* Superseded by M3/M5: production now has multiple released and scheduled LIVE Drops.
+* Direct Home selects the highest `releaseOrder` released LIVE Drop.
 * That policy is NOT the long-term Journey 3 / returning-player rule.
 * Multiple-Drop Home / Journey behavior remains intentionally undefined.
 * No Knowledge Map, Concepts, mastery, XP, recommendation, second production Topic, or new social mechanics were introduced.
@@ -2249,7 +2302,8 @@ Authenticated:
 
 ## LOCKED
 
-Journey 1 covers a brand-new Player who opens Did You Know? directly and plays the current/latest LIVE Space Drop.
+Journey 1 covers a brand-new Player who opens Did You Know? directly and plays
+the current/latest released LIVE Drop.
 
 ## Step 1 - Home
 
@@ -2259,7 +2313,7 @@ Fresh Direct Home follows the locked Fresh Direct Home principles:
 
 * immediate Space challenge;
 * light social promise;
-* current/latest LIVE Drop title;
+* current/latest released LIVE Drop title;
 * `5 questions`;
 * `Play`.
 
@@ -2455,6 +2509,10 @@ The social context was established on Invite landing and returns at Result.
 
 Use the locked Challenged Result contract.
 
+M4.1 supersedes the action hierarchy for challenged Results: preserving or
+opening `You & {challenger}` is now the primary relationship action, while
+Trail continuation and `Challenge someone else` remain secondary / tertiary.
+
 The Result must answer the acquisition question:
 
 `Did I beat / lose to / tie my Challenger?`
@@ -2485,7 +2543,7 @@ No visible group, thread, or graph is created.
 
 A valid Invite remains valid when newer Drops release.
 
-Historical LIVE Drops remain fully playable.
+Historical released LIVE Drops remain fully playable.
 
 Do not label them:
 
@@ -2984,7 +3042,7 @@ Generic rendering may switch on visual vocabulary keys only.
 Do not branch visual or product behavior on Drop ID or Topic ID.
 
 Restored local browser Drop selection must be resilient to content changes. If
-the stored active Drop no longer resolves to a LIVE Drop, the app clears that
+the stored active Drop no longer resolves to a released playable Drop, the app clears that
 local navigation state and returns to Home. Invalid Invite URLs keep their
 explicit Invite error semantics.
 
@@ -3193,8 +3251,8 @@ For direct/Home Results, Trail continuation may remain the primary next action.
 Current M3/M4 Trails are open/guided:
 
 * Trail order tells an editorial story.
-* Every LIVE Drop remains independently playable.
-* Every LIVE Drop remains independently challengeable.
+* Every released LIVE Drop remains independently playable.
+* Every released LIVE Drop remains independently challengeable.
 * A recipient may enter a later Trail Drop directly from an Invite.
 
 This is intentional for the current social-discovery product because frictionless
@@ -3261,6 +3319,11 @@ state from canonical Profile Attempts:
 * I explored, they have not -> `Challenge {name}`;
 * they explored, I have not -> `Explore and compare`;
 * both explored -> `See what you knew`.
+
+When a compact surface can show only one pair action, prefer the newest released
+Drop with meaningful pair state. This keeps the latest release from being hidden
+behind older unfinished gaps while preserving older Drops inside the full pair
+surface.
 
 Pair state is current truth, not notification state.
 
@@ -3371,7 +3434,7 @@ shift toward content quality and release runway.
 
 ---
 
-# 36. Next Section To Define
+# 36. Remaining Journey Work
 
 ## TODO - Concrete V1 User Journeys
 

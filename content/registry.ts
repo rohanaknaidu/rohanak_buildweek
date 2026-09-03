@@ -125,10 +125,6 @@ export function getDrop(dropId: string) {
   return drops.find((drop) => drop.id === dropId) ?? null;
 }
 
-export function getLiveDrops() {
-  return getReleasedDrops(Date.now());
-}
-
 export function isDropReleased(drop: Drop, now: number) {
   return drop.status === "live" && Date.parse(drop.releaseAt) <= now;
 }

@@ -622,37 +622,33 @@ function getPairNextAction({
     (a, b) => b.releaseOrder - a.releaseOrder,
   );
 
-  const theirOnlyDrop = releasedDrops.find(
-    (drop) => !myDropIds.has(drop.id) && theirDropIds.has(drop.id),
-  );
-  if (theirOnlyDrop) {
-    return {
-      kind: "explore" as const,
-      drop: toPublicDrop(theirOnlyDrop),
-      label: `${otherDisplayName} has explored this. Explore and compare.`,
-    };
-  }
+  for (const drop of releasedDrops) {
+    const iExplored = myDropIds.has(drop.id);
+    const theyExplored = theirDropIds.has(drop.id);
 
-  const myOnlyDrop = releasedDrops.find(
-    (drop) => myDropIds.has(drop.id) && !theirDropIds.has(drop.id),
-  );
-  if (myOnlyDrop) {
-    return {
-      kind: "challenge" as const,
-      drop: toPublicDrop(myOnlyDrop),
-      label: `You've explored this. Challenge ${otherDisplayName}.`,
-    };
-  }
+    if (iExplored && !theyExplored) {
+      return {
+        kind: "challenge" as const,
+        drop: toPublicDrop(drop),
+        label: `You've explored this. Challenge ${otherDisplayName}.`,
+      };
+    }
 
-  const sharedDrop = releasedDrops.find(
-    (drop) => myDropIds.has(drop.id) && theirDropIds.has(drop.id),
-  );
-  if (sharedDrop) {
-    return {
-      kind: "compare" as const,
-      drop: toPublicDrop(sharedDrop),
-      label: `${sharedDrop.title} is ready to compare.`,
-    };
+    if (!iExplored && theyExplored) {
+      return {
+        kind: "explore" as const,
+        drop: toPublicDrop(drop),
+        label: `${otherDisplayName} has explored this. Explore and compare.`,
+      };
+    }
+
+    if (iExplored && theyExplored) {
+      return {
+        kind: "compare" as const,
+        drop: toPublicDrop(drop),
+        label: `${drop.title} is ready to compare.`,
+      };
+    }
   }
 
   return null;
@@ -1199,7 +1195,7 @@ export const startAttempt = mutation({
     const drop = inviteContext?.drop ?? requestedDrop ?? getDefaultPlayableDrop(now);
 
     if (!drop) {
-      throw new Error("No live Drop is available.");
+      throw new Error("No released Drop is available.");
     }
 
     await ensurePlayer(ctx, args.playerId);

@@ -1336,7 +1336,15 @@ function TrailDropRow({
           onClick={() => onOpenDrop(summary.drop.id, summary.status)}
           type="button"
         >
-          {disabled ? "Opening..." : actionLabel}
+          {isUpcoming ? (
+            <>
+              Unlocks in <CountdownText releaseAt={summary.releaseAt} />
+            </>
+          ) : disabled ? (
+            "Opening..."
+          ) : (
+            actionLabel
+          )}
         </button>
       </article>
       {bridge ? (
@@ -1360,7 +1368,7 @@ function CountdownText({ releaseAt }: { releaseAt: string }) {
 
 function getHomeActionLabel(summary: HomeDropSummary) {
   if (summary.status === "upcoming") {
-    return `Unlocks in ${formatCountdown(Date.parse(summary.releaseAt) - Date.now())}`;
+    return "Unlocks soon";
   }
 
   if (summary.status === "completed") {
@@ -2095,11 +2103,13 @@ function PairScreen({
   }
 
   const sharedDrops = pair.drops.filter((summary) => summary.overlap);
-  const challengeableDrops = pair.drops.filter(
-    (summary) => summary.myScore !== null && summary.theirScore === null,
-  );
-  const theirOnlyDrops = pair.drops.filter(
-    (summary) => summary.myScore === null && summary.theirScore !== null,
+  const nextPairAction = [...pair.drops]
+    .sort(
+      (a, b) =>
+        Date.parse(b.drop.releaseAt) - Date.parse(a.drop.releaseAt),
+    )
+    .find(
+      (summary) => summary.myScore !== null || summary.theirScore !== null,
   );
 
   return (
@@ -2143,26 +2153,28 @@ function PairScreen({
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#f2c184]">
               Next spark
             </p>
-            {challengeableDrops[0] ? (
+            {nextPairAction?.myScore !== null &&
+            nextPairAction?.theirScore === null ? (
               <>
                 <h2 className="mt-3 text-2xl font-semibold leading-tight">
                   {pair.otherProfile.displayName} has not explored{" "}
-                  {challengeableDrops[0].drop.title} yet.
+                  {nextPairAction.drop.title} yet.
                 </h2>
                 <button
                   className="mt-5 min-h-12 w-full rounded-full bg-[#fff8e8] px-4 text-base font-bold text-[#101114] transition hover:bg-white disabled:opacity-60"
                   disabled={disabled}
-                  onClick={() => onChallengeDrop(challengeableDrops[0])}
+                  onClick={() => onChallengeDrop(nextPairAction)}
                   type="button"
                 >
                   Challenge {pair.otherProfile.displayName}
                 </button>
               </>
-            ) : theirOnlyDrops[0] ? (
+            ) : nextPairAction?.myScore === null &&
+              nextPairAction?.theirScore !== null ? (
               <>
                 <h2 className="mt-3 text-2xl font-semibold leading-tight">
                   {pair.otherProfile.displayName} explored{" "}
-                  {theirOnlyDrops[0].drop.title}.
+                  {nextPairAction.drop.title}.
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-[#c9c0ad]">
                   Explore it now to add another comparison.
@@ -2170,11 +2182,20 @@ function PairScreen({
                 <button
                   className="mt-5 min-h-12 w-full rounded-full bg-[#fff8e8] px-4 text-base font-bold text-[#101114] transition hover:bg-white disabled:opacity-60"
                   disabled={disabled}
-                  onClick={() => onExploreDrop(theirOnlyDrops[0])}
+                  onClick={() => onExploreDrop(nextPairAction)}
                   type="button"
                 >
                   Explore and compare
                 </button>
+              </>
+            ) : nextPairAction?.overlap ? (
+              <>
+                <h2 className="mt-3 text-2xl font-semibold leading-tight">
+                  {nextPairAction.drop.title} is ready to compare.
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-[#c9c0ad]">
+                  Open the Drop card to see what each of you knew.
+                </p>
               </>
             ) : (
               <>

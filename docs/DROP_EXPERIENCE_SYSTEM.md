@@ -92,6 +92,12 @@ materially change Question IDs / answer semantics until Drop versioning exists.
 Copy, descriptions, and Reveals may be edited carefully, but historical
 comparisons depend on stable Question meaning.
 
+## Recurrence Rule
+
+When a compact social surface can show only one pair action, it should prefer
+the newest released Drop with meaningful pair state. Older unfinished or shared
+Drops remain visible inside the full pair surface.
+
 M3.2 proof:
 
 `A temporary fourth Drop using existing vocabulary can be added through content-only changes, render across the standard surfaces, and then be removed before commit.`
