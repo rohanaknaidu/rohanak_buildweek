@@ -20,6 +20,31 @@ export const areas = [
     topicId: "body",
     name: "Spaceflight",
   },
+  {
+    id: "perception",
+    topicId: "mind",
+    name: "Perception",
+  },
+  {
+    id: "attention",
+    topicId: "mind",
+    name: "Attention",
+  },
+  {
+    id: "memory",
+    topicId: "mind",
+    name: "Memory",
+  },
+  {
+    id: "confidence",
+    topicId: "mind",
+    name: "Confidence",
+  },
+  {
+    id: "social-memory",
+    topicId: "mind",
+    name: "Social Memory",
+  },
 ] as const satisfies Area[];
 
 export type AreaId = (typeof areas)[number]["id"];

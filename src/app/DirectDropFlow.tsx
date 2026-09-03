@@ -922,6 +922,10 @@ const visualFamilies: Record<string, Omit<TerritoryTheme, "motif" | "pattern">> 
       accent: "#d67f7f",
       secondary: "#a4d6b2",
     },
+    cognitive: {
+      accent: "#b9a7ff",
+      secondary: "#7ad9c2",
+    },
   };
 
 const visualMotifs: Record<string, Pick<TerritoryTheme, "motif" | "pattern">> = {
@@ -940,10 +944,20 @@ const visualMotifs: Record<string, Pick<TerritoryTheme, "motif" | "pattern">> = 
     pattern:
       "repeating-linear-gradient(155deg, rgba(214, 127, 127, 0.10) 0 2px, transparent 2px 28px), radial-gradient(circle at 72% 28%, rgba(164, 214, 178, 0.12), transparent 28%)",
   },
+  "neural-field": {
+    motif: "neural-field",
+    pattern:
+      "radial-gradient(circle at 24% 24%, rgba(185, 167, 255, 0.16) 0 1px, transparent 2px), radial-gradient(circle at 68% 38%, rgba(122, 217, 194, 0.13) 0 1px, transparent 2px), repeating-linear-gradient(35deg, rgba(255, 248, 232, 0.04) 0 1px, transparent 1px 54px)",
+  },
+  "memory-trace": {
+    motif: "memory-trace",
+    pattern:
+      "repeating-radial-gradient(ellipse at 28% 30%, rgba(185, 167, 255, 0.13) 0 1px, transparent 2px 42px), linear-gradient(135deg, rgba(122, 217, 194, 0.09), transparent 52%)",
+  },
 };
 
 type ArtworkDescriptor = {
-  motif: "rings" | "arc" | "body";
+  motif: "rings" | "arc" | "body" | "mind";
 };
 
 const visualArtworks: Record<string, ArtworkDescriptor> = {
@@ -953,6 +967,11 @@ const visualArtworks: Record<string, ArtworkDescriptor> = {
   "orbital-fall": { motif: "arc" },
   "body-in-microgravity": { motif: "body" },
   "fluid-shift": { motif: "body" },
+  "mind-perception-field": { motif: "mind" },
+  "mind-attention-field": { motif: "mind" },
+  "mind-memory-trace": { motif: "mind" },
+  "mind-confidence-trace": { motif: "mind" },
+  "mind-social-memory": { motif: "mind" },
 };
 
 function getTerritoryTheme(visualIdentity?: VisualIdentity): TerritoryTheme {
@@ -1071,6 +1090,21 @@ function ArtworkSignal({
         <span className="absolute left-1/2 top-4 h-9 w-9 -translate-x-1/2 rounded-full border border-[var(--accent)]/45" />
         <span className="absolute left-1/2 top-12 h-9 w-12 -translate-x-1/2 rounded-full bg-[var(--accent)]/20" />
         <span className="absolute bottom-5 left-1/2 h-2 w-12 -translate-x-1/2 rounded-full bg-[var(--accent)]" />
+      </div>
+    );
+  }
+
+  if (artwork.motif === "mind") {
+    return (
+      <div
+        aria-hidden="true"
+        className="relative h-24 w-24 rounded-[2rem] border border-[var(--accent)]/35"
+      >
+        <span className="absolute left-4 top-5 h-3 w-3 rounded-full bg-[var(--accent)]" />
+        <span className="absolute right-5 top-7 h-3 w-3 rounded-full bg-[#fff8e8]/80" />
+        <span className="absolute bottom-6 left-7 h-3 w-3 rounded-full bg-[var(--accent)]/80" />
+        <span className="absolute left-6 top-7 h-px w-12 rotate-12 bg-[var(--accent)]/50" />
+        <span className="absolute bottom-8 right-7 h-px w-10 -rotate-45 bg-[#fff8e8]/35" />
       </div>
     );
   }

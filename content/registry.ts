@@ -2,6 +2,11 @@ import { areas } from "./areas";
 import { bodySpaceSleep001 } from "./drops/body-space-sleep-001";
 import { bodySpaceVision001 } from "./drops/body-space-vision-001";
 import { bodySpaceflightChanges001 } from "./drops/body-spaceflight-changes-001";
+import { mindAttentionMissed001 } from "./drops/mind-attention-missed-001";
+import { mindConfidenceWrong001 } from "./drops/mind-confidence-wrong-001";
+import { mindMemoryReconstructed001 } from "./drops/mind-memory-reconstructed-001";
+import { mindPerceptionConstructed001 } from "./drops/mind-perception-constructed-001";
+import { mindSocialMemoryDifferent001 } from "./drops/mind-social-memory-different-001";
 import { physicsGravityStrange001 } from "./drops/physics-gravity-strange-001";
 import { spaceSolarSystemStrange001 } from "./drops/space-solar-system-strange-001";
 import { trails } from "./trails";
@@ -13,11 +18,18 @@ export type VisualFamily = string;
 
 export type VisualMotif = string;
 
-const supportedVisualFamilies = ["cosmic", "gravitational", "organic"] as const;
+const supportedVisualFamilies = [
+  "cosmic",
+  "gravitational",
+  "organic",
+  "cognitive",
+] as const;
 const supportedVisualMotifs = [
   "orbit",
   "falling-arc",
   "microgravity-body",
+  "neural-field",
+  "memory-trace",
 ] as const;
 const supportedArtworkIds = [
   "solar-system-orbits",
@@ -26,6 +38,11 @@ const supportedArtworkIds = [
   "orbital-fall",
   "body-in-microgravity",
   "fluid-shift",
+  "mind-perception-field",
+  "mind-attention-field",
+  "mind-memory-trace",
+  "mind-confidence-trace",
+  "mind-social-memory",
 ] as const;
 
 export type VisualIdentity = {
@@ -115,6 +132,11 @@ const dropContent = [
   bodySpaceflightChanges001,
   bodySpaceSleep001,
   bodySpaceVision001,
+  mindPerceptionConstructed001,
+  mindAttentionMissed001,
+  mindMemoryReconstructed001,
+  mindConfidenceWrong001,
+  mindSocialMemoryDifferent001,
 ] as const satisfies DropContent[];
 
 export const drops = dropContent.map(resolveDrop);
@@ -229,7 +251,7 @@ function resolveDrop(drop: DropContent): Drop {
   const area = areas.find((candidate) => candidate.id === drop.areaId);
   validateVisualIdentity(drop);
   validateReleaseAt(drop);
-  validateDiscoveries(drop);
+  validateQuestions(drop);
 
   if (!topic) {
     throw new Error(`Drop "${drop.id}" references missing Topic "${drop.topicId}".`);
@@ -258,8 +280,32 @@ function validateReleaseAt(drop: DropContent) {
   }
 }
 
-function validateDiscoveries(drop: DropContent) {
+function validateQuestions(drop: DropContent) {
+  if (drop.questions.length === 0) {
+    throw new Error(`Drop "${drop.id}" must include at least one Question.`);
+  }
+
   for (const question of drop.questions) {
+    if (question.options.length < 2 || question.options.length > 4) {
+      throw new Error(
+        `Drop "${drop.id}" question "${question.id}" must include 2-4 options.`,
+      );
+    }
+
+    const optionIds = new Set(question.options.map((option) => option.id));
+
+    if (optionIds.size !== question.options.length) {
+      throw new Error(
+        `Drop "${drop.id}" question "${question.id}" has duplicate option IDs.`,
+      );
+    }
+
+    if (!optionIds.has(question.correctOptionId)) {
+      throw new Error(
+        `Drop "${drop.id}" question "${question.id}" references missing correct option "${question.correctOptionId}".`,
+      );
+    }
+
     if (!question.reveal.discovery.trim()) {
       throw new Error(
         `Drop "${drop.id}" question "${question.id}" is missing a discovery sentence.`,

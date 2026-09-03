@@ -21,6 +21,12 @@ export const topics = [
     description:
       "Surprising ways human bodies adapt, break expectations, and keep working.",
   },
+  {
+    id: "mind",
+    name: "Mind",
+    description:
+      "Surprising ways perception, attention, memory, and confidence shape reality.",
+  },
 ] as const satisfies Topic[];
 
 export type TopicId = (typeof topics)[number]["id"];
