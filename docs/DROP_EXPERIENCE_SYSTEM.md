@@ -30,6 +30,7 @@ Content must remain plain serializable data. It must not include React, callback
 Every production Drop should include:
 
 * player-facing content: `title`, `description`, `questions`, `options`, `reveal`, `source`;
+* release metadata: `releaseAt`;
 * editorial metadata: `experience.centralIdea`, `experience.exitUnderstanding`;
 * visual identity: `experience.visualIdentity.family`, `experience.visualIdentity.motif`, optional semantic artwork IDs.
 
@@ -80,8 +81,16 @@ Technical gate:
 
 * adding a Drop with an existing visual family/motif does not require engine edits;
 * variable Question count is derived from content;
+* release availability is derived from `releaseAt`, not from frontend hiding alone;
 * direct play, Invite play, resume, Result, Challenge, Home state, mobile, and desktop still work;
 * typecheck, lint, and build pass.
+
+## Release Stability
+
+Once a LIVE released Drop has real Attempts, do not remove, reorder, replace, or
+materially change Question IDs / answer semantics until Drop versioning exists.
+Copy, descriptions, and Reveals may be edited carefully, but historical
+comparisons depend on stable Question meaning.
 
 M3.2 proof:
 

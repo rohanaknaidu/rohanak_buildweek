@@ -8,6 +8,7 @@ export const bodySpaceflightChanges001 = {
   description:
     "Five quick challenges about what microgravity does to the human body.",
   status: "live",
+  releaseAt: "2026-09-02T18:30:00.000Z",
   releaseOrder: 3,
   experience: {
     centralIdea:

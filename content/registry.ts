@@ -1,4 +1,6 @@
 import { areas } from "./areas";
+import { bodySpaceSleep001 } from "./drops/body-space-sleep-001";
+import { bodySpaceVision001 } from "./drops/body-space-vision-001";
 import { bodySpaceflightChanges001 } from "./drops/body-spaceflight-changes-001";
 import { physicsGravityStrange001 } from "./drops/physics-gravity-strange-001";
 import { spaceSolarSystemStrange001 } from "./drops/space-solar-system-strange-001";
@@ -71,6 +73,7 @@ export type DropContent = {
   title: string;
   description: string;
   status: DropStatus;
+  releaseAt: string;
   releaseOrder: number;
   experience: DropExperience;
   questions: Question[];
@@ -109,6 +112,8 @@ const dropContent = [
   spaceSolarSystemStrange001,
   physicsGravityStrange001,
   bodySpaceflightChanges001,
+  bodySpaceSleep001,
+  bodySpaceVision001,
 ] as const satisfies DropContent[];
 
 export const drops = dropContent.map(resolveDrop);
@@ -121,7 +126,29 @@ export function getDrop(dropId: string) {
 }
 
 export function getLiveDrops() {
-  return drops.filter((drop) => drop.status === "live");
+  return getReleasedDrops(Date.now());
+}
+
+export function isDropReleased(drop: Drop, now: number) {
+  return drop.status === "live" && Date.parse(drop.releaseAt) <= now;
+}
+
+export function isDropUpcoming(drop: Drop, now: number) {
+  return drop.status === "live" && Date.parse(drop.releaseAt) > now;
+}
+
+export function getReleasedDrops(now: number) {
+  return drops.filter((drop) => isDropReleased(drop, now));
+}
+
+export function getUpcomingDrops(now: number) {
+  return drops
+    .filter((drop) => isDropUpcoming(drop, now))
+    .sort((a, b) => Date.parse(a.releaseAt) - Date.parse(b.releaseAt));
+}
+
+export function getNextUpcomingDrop(now: number) {
+  return getUpcomingDrops(now)[0] ?? null;
 }
 
 export function getDropsForTopic(topicId: string) {
@@ -132,7 +159,7 @@ export function getTrails() {
   return trails.map(resolveTrail);
 }
 
-export function getTrailContextForDrop(dropId: string) {
+export function getTrailContextForDrop(dropId: string, now = Date.now()) {
   for (const trail of getTrails()) {
     const index = trail.dropIds.indexOf(dropId);
 
@@ -144,8 +171,8 @@ export function getTrailContextForDrop(dropId: string) {
       trail,
       position: index + 1,
       total: trail.dropIds.length,
-      previousDrop: getLiveTrailNeighbor(trail.dropIds, index, -1),
-      nextDrop: getLiveTrailNeighbor(trail.dropIds, index, 1),
+      previousDrop: getReleasedTrailNeighbor(trail.dropIds, index, -1, now),
+      nextDrop: getReleasedTrailNeighbor(trail.dropIds, index, 1, now),
     };
   }
 
@@ -163,6 +190,7 @@ export function toPublicDrop(drop: Drop) {
     area: drop.area,
     title: drop.title,
     description: drop.description,
+    releaseAt: drop.releaseAt,
     experience: drop.experience,
     questionCount: drop.questions.length,
   };
@@ -203,6 +231,7 @@ function resolveDrop(drop: DropContent): Drop {
   const topic = topics.find((candidate) => candidate.id === drop.topicId);
   const area = areas.find((candidate) => candidate.id === drop.areaId);
   validateVisualIdentity(drop);
+  validateReleaseAt(drop);
 
   if (!topic) {
     throw new Error(`Drop "${drop.id}" references missing Topic "${drop.topicId}".`);
@@ -223,6 +252,12 @@ function resolveDrop(drop: DropContent): Drop {
     topic,
     area,
   };
+}
+
+function validateReleaseAt(drop: DropContent) {
+  if (Number.isNaN(Date.parse(drop.releaseAt))) {
+    throw new Error(`Drop "${drop.id}" has invalid releaseAt "${drop.releaseAt}".`);
+  }
 }
 
 function validateVisualIdentity(drop: DropContent) {
@@ -278,12 +313,13 @@ function resolveTrail(trail: Trail): Trail {
   return trail;
 }
 
-function getLiveTrailNeighbor(
+function getReleasedTrailNeighbor(
   dropIds: readonly string[],
   currentIndex: number,
   direction: -1 | 1,
+  now: number,
 ) {
   const drop = getDrop(dropIds[currentIndex + direction]);
 
-  return drop?.status === "live" ? drop : null;
+  return drop && isDropReleased(drop, now) ? drop : null;
 }

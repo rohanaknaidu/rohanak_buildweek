@@ -133,6 +133,45 @@ function makeDirectDropPath(dropId: string) {
   return `/?${params.toString()}`;
 }
 
+function formatCountdown(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${minutes.toString().padStart(2, "0")}m ${seconds
+      .toString()
+      .padStart(2, "0")}s`;
+  }
+
+  return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+}
+
+function useCountdown(releaseAt: string, onElapsed?: () => void) {
+  const releaseTime = Date.parse(releaseAt);
+  const [remainingMs, setRemainingMs] = useState(() => releaseTime - Date.now());
+  const didElapse = useRef(false);
+
+  useEffect(() => {
+    const tick = () => {
+      const nextRemaining = releaseTime - Date.now();
+      setRemainingMs(nextRemaining);
+
+      if (nextRemaining <= 0 && !didElapse.current) {
+        didElapse.current = true;
+        onElapsed?.();
+      }
+    };
+    const intervalId = window.setInterval(tick, 1000);
+    tick();
+
+    return () => window.clearInterval(intervalId);
+  }, [onElapsed, releaseTime]);
+
+  return Math.max(0, remainingMs);
+}
+
 function clearAuthReturnIntent() {
   window.localStorage.removeItem(pendingAuthActionStorageKey);
   window.localStorage.removeItem(activeDropStorageKey);
@@ -483,6 +522,9 @@ function DropFlowInner({
           onOpenAccount={profile ? () => setIsAccountOpen(true) : undefined}
           onOpenDrop={(dropId, status) => {
             setError(null);
+            if (status === "upcoming") {
+              return;
+            }
             setActivePairId(null);
             setActiveDropSelection({ dropId, source: "user" });
             window.localStorage.setItem(activeDropStorageKey, dropId);
@@ -506,6 +548,8 @@ function DropFlowInner({
             setError(null);
             setActivePairId(pairId);
           }}
+          caughtUp={homeState.caughtUp}
+          nextRelease={homeState.nextRelease}
           showGoogleSignIn={profile === null}
           totalCount={homeState.totalCount}
           trails={homeState.trails}
@@ -773,6 +817,7 @@ function DropFlowInner({
           onSaveJourney={saveJourney}
           profile={profile}
           score={attemptState.result?.score ?? 0}
+          nextRelease={flowState.nextRelease}
           trailContext={flowState.trailContext}
           total={flowState.drop.questionCount}
         />
@@ -1043,9 +1088,11 @@ function ArtworkSignal({
 }
 
 function HomeScreen({
+  caughtUp,
   disabled,
   error,
   exploredCount,
+  nextRelease,
   onGoogleSignIn,
   onOpenAccount,
   onOpenDrop,
@@ -1056,9 +1103,11 @@ function HomeScreen({
   totalCount,
   trails,
 }: {
+  caughtUp: boolean;
   disabled: boolean;
   error: string | null;
   exploredCount: number;
+  nextRelease: NextRelease | null;
   onGoogleSignIn: () => void;
   onOpenAccount?: () => void;
   onOpenDrop: (dropId: string, status: HomeDropStatus) => void;
@@ -1106,6 +1155,20 @@ function HomeScreen({
                 <p className="mt-5 inline-flex rounded-full border border-[#e6a95f]/40 bg-[#e6a95f]/10 px-3 py-1 text-sm font-semibold text-[#f2c184]">
                   {exploredCount} of {totalCount} explored
                 </p>
+                {caughtUp && nextRelease ? (
+                  <section className="mt-5 rounded-3xl border border-[#f2c184]/35 bg-[#f2c184]/10 p-4">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#f2c184]">
+                      You are caught up
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold leading-tight text-[#fff8e8]">
+                      Next Drop unlocks in{" "}
+                      <CountdownText releaseAt={nextRelease.releaseAt} />
+                    </h3>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-[#c9c0ad]">
+                      {nextRelease.drop.title}
+                    </p>
+                  </section>
+                ) : null}
               </div>
             </div>
             <div className="relative">
@@ -1156,6 +1219,11 @@ function HomeScreen({
                       ? "exploration"
                       : "explorations"}
                   </p>
+                  {pair.action ? (
+                    <p className="mt-3 rounded-2xl border border-[#f2c184]/25 bg-[#f2c184]/10 px-3 py-2 text-sm font-semibold leading-5 text-[#f2c184]">
+                      {pair.action.label}
+                    </p>
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -1192,6 +1260,7 @@ function TrailDropRow({
 }) {
   const isCompleted = summary.status === "completed";
   const isInProgress = summary.status === "inProgress";
+  const isUpcoming = summary.status === "upcoming";
   const actionLabel = getHomeActionLabel(summary);
   const theme = getTerritoryTheme(summary.drop.experience.visualIdentity);
 
@@ -1205,6 +1274,8 @@ function TrailDropRow({
               ? "border-[var(--accent)] bg-[var(--accent)] text-[#101114]"
               : isInProgress
                 ? "border-[var(--accent)] bg-[#101114] text-[var(--accent)]"
+                : isUpcoming
+                  ? "border-[#f2c184]/35 bg-[#101114] text-[#f2c184]"
                 : "border-[#f8f0df]/25 bg-[#17191e] text-[#c9c0ad]",
           ].join(" ")}
           style={{ "--accent": theme.accent } as CSSProperties}
@@ -1217,7 +1288,9 @@ function TrailDropRow({
           "relative overflow-hidden rounded-2xl border p-5 shadow-2xl transition",
           isCompleted
             ? "border-[var(--accent)]/60 bg-[#f8f0df]/95 text-[#17120d]"
-            : "border-[#f8f0df]/15 bg-[#f8f0df]/8 text-[#fff8e8] hover:border-[var(--accent)]/70",
+            : isUpcoming
+              ? "border-[#f2c184]/20 bg-[#101114]/75 text-[#fff8e8]"
+              : "border-[#f8f0df]/15 bg-[#f8f0df]/8 text-[#fff8e8] hover:border-[var(--accent)]/70",
         ].join(" ")}
         style={{ "--accent": theme.accent } as CSSProperties}
       >
@@ -1252,12 +1325,14 @@ function TrailDropRow({
         <button
           className={[
             "mt-5 min-h-12 w-full rounded-full px-4 text-base font-bold transition focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35 disabled:cursor-not-allowed disabled:opacity-60",
-            isCompleted
+            isUpcoming
+              ? "border border-[#f2c184]/25 bg-transparent text-[#f2c184]"
+              : isCompleted
               ? "border border-[#17120d]/15 bg-[#17120d] text-[#fff8e8] hover:bg-[#2a221a]"
               : "bg-[var(--accent)] text-[#101114] shadow-[0_0_35px_rgba(255,255,255,0.08)] hover:brightness-110",
           ].join(" ")}
           style={{ "--accent": theme.accent } as CSSProperties}
-          disabled={disabled}
+          disabled={disabled || isUpcoming}
           onClick={() => onOpenDrop(summary.drop.id, summary.status)}
           type="button"
         >
@@ -1275,7 +1350,19 @@ function TrailDropRow({
   );
 }
 
+function CountdownText({ releaseAt }: { releaseAt: string }) {
+  const remainingMs = useCountdown(releaseAt, () => {
+    window.location.reload();
+  });
+
+  return <>{formatCountdown(remainingMs)}</>;
+}
+
 function getHomeActionLabel(summary: HomeDropSummary) {
+  if (summary.status === "upcoming") {
+    return `Unlocks in ${formatCountdown(Date.parse(summary.releaseAt) - Date.now())}`;
+  }
+
   if (summary.status === "completed") {
     return `Explored - ${summary.score ?? 0}/${summary.total} correct`;
   }
@@ -1624,6 +1711,7 @@ function ResultScreen({
   error,
   isAuthenticated,
   journeySavedNotice,
+  nextRelease,
   onBackToHome,
   onChallenge,
   onExploreNext,
@@ -1640,6 +1728,7 @@ function ResultScreen({
   error: string | null;
   isAuthenticated: boolean;
   journeySavedNotice: boolean;
+  nextRelease: NextRelease | null;
   onBackToHome: () => void;
   onChallenge: () => void;
   onExploreNext?: () => void;
@@ -1768,6 +1857,19 @@ function ResultScreen({
                   Explore next
                 </button>
               </section>
+            ) : nextRelease ? (
+              <section className="mt-6 border-t border-[#fff8e8]/12 pt-5">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8fb7c9]">
+                  You are caught up
+                </p>
+                <h3 className="mt-3 text-xl font-semibold leading-tight text-[#fff8e8]">
+                  Next Drop unlocks in{" "}
+                  <CountdownText releaseAt={nextRelease.releaseAt} />
+                </h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#c9c0ad]">
+                  {nextRelease.drop.title}
+                </p>
+              </section>
             ) : null}
 
             <section className="mt-5 border-t border-[#fff8e8]/12 pt-5">
@@ -1881,6 +1983,19 @@ function ResultScreen({
               Explore next
             </button>
           </section>
+            ) : nextRelease ? (
+              <section className="rounded-3xl border border-[#fff8e8]/16 bg-[#101114]/60 p-5">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent)]">
+                  You are caught up
+                </p>
+                <h2 className="mt-3 text-2xl font-semibold leading-tight">
+                  Next Drop unlocks in{" "}
+                  <CountdownText releaseAt={nextRelease.releaseAt} />
+                </h2>
+                <p className="mt-3 text-sm font-semibold leading-6 text-[#c9c0ad]">
+                  {nextRelease.drop.title}
+                </p>
+              </section>
             ) : (
               <section className="rounded-3xl border border-[#fff8e8]/16 bg-[#101114]/60 p-5">
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent)]">
@@ -2062,11 +2177,31 @@ function PairScreen({
                 </button>
               </>
             ) : (
-              <p className="mt-3 text-base leading-7 text-[#c9c0ad]">
-                Explore another Drop, then challenge{" "}
-                {pair.otherProfile.displayName} to keep building this
-                comparison.
-              </p>
+              <>
+                {pair.caughtUpTogether && pair.nextRelease ? (
+                  <>
+                    <h2 className="mt-3 text-2xl font-semibold leading-tight">
+                      You are caught up together.
+                    </h2>
+                    <p className="mt-3 text-base leading-7 text-[#c9c0ad]">
+                      Next Drop unlocks in{" "}
+                      <span className="font-bold text-[#f2c184]">
+                        <CountdownText releaseAt={pair.nextRelease.releaseAt} />
+                      </span>
+                      .
+                    </p>
+                    <p className="mt-3 text-sm font-semibold leading-6 text-[#c9c0ad]">
+                      {pair.nextRelease.drop.title}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-3 text-base leading-7 text-[#c9c0ad]">
+                    Explore another Drop, then challenge{" "}
+                    {pair.otherProfile.displayName} to keep building this
+                    comparison.
+                  </p>
+                )}
+              </>
             )}
           </aside>
         </div>
@@ -2663,6 +2798,7 @@ type PublicDrop = {
   };
   title: string;
   description: string;
+  releaseAt: string;
   experience: {
     centralIdea: string;
     exitUnderstanding: string;
@@ -2741,7 +2877,7 @@ type KnowledgeBucket = {
   tone: "accent" | "quiet";
 };
 
-type HomeDropStatus = "unstarted" | "inProgress" | "completed";
+type HomeDropStatus = "unstarted" | "inProgress" | "completed" | "upcoming";
 
 type HomeDropSummary = {
   drop: PublicDrop;
@@ -2749,12 +2885,14 @@ type HomeDropSummary = {
   currentQuestionNumber: number | null;
   score: number | null;
   total: number;
+  releaseAt: string;
 };
 
 type PairSummary = {
   id: Id<"knowledgePairs">;
   otherProfile: SocialProfile;
   sharedExplorationCount: number;
+  action: PairAction | null;
 };
 
 type PairDropSummary = {
@@ -2769,6 +2907,8 @@ type PairState = {
   id: Id<"knowledgePairs">;
   otherProfile: SocialProfile;
   drops: PairDropSummary[];
+  caughtUpTogether: boolean;
+  nextRelease: NextRelease | null;
 };
 
 type HomeTrail = {
@@ -2777,6 +2917,17 @@ type HomeTrail = {
   description: string;
   bridges?: string[];
   drops: HomeDropSummary[];
+};
+
+type NextRelease = {
+  drop: PublicDrop;
+  releaseAt: string;
+};
+
+type PairAction = {
+  kind: "challenge" | "explore" | "compare";
+  drop: PublicDrop;
+  label: string;
 };
 
 type TrailContext = {

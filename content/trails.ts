@@ -16,10 +16,14 @@ export const trails = [
       "space-solar-system-strange-001",
       "physics-gravity-strange-001",
       "body-spaceflight-changes-001",
+      "body-space-sleep-001",
+      "body-space-vision-001",
     ],
     bridges: [
       "What keeps all these strange worlds moving?",
       "If astronauts are always falling, what does that do to their bodies?",
+      "If space changes your body, can you even sleep normally there?",
+      "If sleep and fluids shift in orbit, what happens to the eyes?",
     ],
   },
 ] as const satisfies Trail[];

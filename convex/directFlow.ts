@@ -5,10 +5,12 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   getDrop,
-  getLiveDrops,
+  getNextUpcomingDrop,
+  getReleasedDrops,
   getQuestionById,
   getTrailContextForDrop,
   getTrails,
+  isDropReleased,
   toPublicDrop,
   toPublicQuestion,
   toPublicTrail,
@@ -491,6 +493,7 @@ async function makePairSummary(
   ctx: QueryCtx,
   pair: KnowledgePairDoc,
   currentProfile: ProfileDoc,
+  now: number,
 ) {
   const otherProfileId = getOtherProfileId(pair, currentProfile._id);
 
@@ -512,6 +515,12 @@ async function makePairSummary(
   const sharedExplorationCount = myAttempts.filter((attempt) =>
     theirDropIds.has(attempt.dropId),
   ).length;
+  const action = getPairNextAction({
+    myAttempts,
+    theirAttempts,
+    now,
+    otherDisplayName: otherProfile.displayName,
+  });
 
   return {
     id: pair._id,
@@ -520,6 +529,7 @@ async function makePairSummary(
       displayName: otherProfile.displayName,
     },
     sharedExplorationCount,
+    action,
   };
 }
 
@@ -527,6 +537,7 @@ async function makePairDetail(
   ctx: QueryCtx,
   pair: KnowledgePairDoc,
   currentProfile: ProfileDoc,
+  now: number,
 ) {
   const otherProfileId = getOtherProfileId(pair, currentProfile._id);
 
@@ -552,7 +563,7 @@ async function makePairDetail(
   );
 
   const dropSummaries = await Promise.all(
-    getLiveDrops().map(async (drop) => {
+    getReleasedDrops(now).map(async (drop) => {
       const myAttempt = myAttemptsByDropId.get(drop.id) ?? null;
       const theirAttempt = theirAttemptsByDropId.get(drop.id) ?? null;
 
@@ -585,7 +596,98 @@ async function makePairDetail(
       displayName: otherProfile.displayName,
     },
     drops: dropSummaries.filter((summary) => summary !== null),
+    caughtUpTogether: areBothCaughtUp({
+      myAttempts,
+      theirAttempts,
+      now,
+    }),
+    nextRelease: toPublicNextRelease(getNextUpcomingDrop(now)),
   };
+}
+
+function getPairNextAction({
+  myAttempts,
+  theirAttempts,
+  now,
+  otherDisplayName,
+}: {
+  myAttempts: Doc<"attempts">[];
+  theirAttempts: Doc<"attempts">[];
+  now: number;
+  otherDisplayName: string;
+}) {
+  const myDropIds = new Set(myAttempts.map((attempt) => attempt.dropId));
+  const theirDropIds = new Set(theirAttempts.map((attempt) => attempt.dropId));
+  const releasedDrops = [...getReleasedDrops(now)].sort(
+    (a, b) => b.releaseOrder - a.releaseOrder,
+  );
+
+  const theirOnlyDrop = releasedDrops.find(
+    (drop) => !myDropIds.has(drop.id) && theirDropIds.has(drop.id),
+  );
+  if (theirOnlyDrop) {
+    return {
+      kind: "explore" as const,
+      drop: toPublicDrop(theirOnlyDrop),
+      label: `${otherDisplayName} has explored this. Explore and compare.`,
+    };
+  }
+
+  const myOnlyDrop = releasedDrops.find(
+    (drop) => myDropIds.has(drop.id) && !theirDropIds.has(drop.id),
+  );
+  if (myOnlyDrop) {
+    return {
+      kind: "challenge" as const,
+      drop: toPublicDrop(myOnlyDrop),
+      label: `You've explored this. Challenge ${otherDisplayName}.`,
+    };
+  }
+
+  const sharedDrop = releasedDrops.find(
+    (drop) => myDropIds.has(drop.id) && theirDropIds.has(drop.id),
+  );
+  if (sharedDrop) {
+    return {
+      kind: "compare" as const,
+      drop: toPublicDrop(sharedDrop),
+      label: `${sharedDrop.title} is ready to compare.`,
+    };
+  }
+
+  return null;
+}
+
+function areBothCaughtUp({
+  myAttempts,
+  theirAttempts,
+  now,
+}: {
+  myAttempts: Doc<"attempts">[];
+  theirAttempts: Doc<"attempts">[];
+  now: number;
+}) {
+  const releasedDrops = getReleasedDrops(now);
+
+  if (releasedDrops.length === 0) {
+    return false;
+  }
+
+  const myDropIds = new Set(myAttempts.map((attempt) => attempt.dropId));
+  const theirDropIds = new Set(theirAttempts.map((attempt) => attempt.dropId));
+
+  return releasedDrops.every(
+    (drop) => myDropIds.has(drop.id) && theirDropIds.has(drop.id),
+  );
+}
+
+function toPublicNextRelease(drop: Drop | null) {
+  return drop
+    ? {
+        drop: toPublicDrop(drop),
+        releaseAt: drop.releaseAt,
+      }
+    : null;
 }
 
 function makeRevealPayload(answer: AnswerDoc) {
@@ -704,8 +806,9 @@ async function getInviteContext(ctx: QueryCtx | MutationCtx, inviteId: string) {
   }
 
   const drop = getDrop(invite.dropId);
+  const now = Date.now();
 
-  if (!drop || drop.status !== "live") {
+  if (!drop || !isDropReleased(drop, now)) {
     return null;
   }
 
@@ -766,6 +869,7 @@ async function getFlowPayload({
       invite: null,
       challenger: null,
       trailContext: null,
+      nextRelease: toPublicNextRelease(getNextUpcomingDrop(Date.now())),
     };
   }
 
@@ -792,7 +896,8 @@ async function getFlowPayload({
               currentProfile: profile,
             })
           : null,
-        trailContext: toPublicTrailContext(getTrailContextForDrop(drop.id)),
+        trailContext: toPublicTrailContext(getTrailContextForDrop(drop.id, Date.now())),
+        nextRelease: toPublicNextRelease(getNextUpcomingDrop(Date.now())),
       };
     }
 
@@ -813,7 +918,8 @@ async function getFlowPayload({
           drop,
         })
       : null,
-    trailContext: toPublicTrailContext(getTrailContextForDrop(drop.id)),
+    trailContext: toPublicTrailContext(getTrailContextForDrop(drop.id, Date.now())),
+    nextRelease: toPublicNextRelease(getNextUpcomingDrop(Date.now())),
   };
 }
 
@@ -823,9 +929,10 @@ export const getFlowState = query({
     dropId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const drop = args.dropId ? getDrop(args.dropId) : getDefaultPlayableDrop();
+    const now = Date.now();
+    const drop = args.dropId ? getDrop(args.dropId) : getDefaultPlayableDrop(now);
 
-    if (!drop || drop.status !== "live") {
+    if (!drop || !isDropReleased(drop, now)) {
       return {
         drop: null,
         player: null,
@@ -834,6 +941,7 @@ export const getFlowState = query({
         invite: null,
         challenger: null,
         trailContext: null,
+        nextRelease: toPublicNextRelease(getNextUpcomingDrop(now)),
       };
     }
 
@@ -854,16 +962,31 @@ export const getHomeState = query({
   handler: async (ctx, args) => {
     const player = await getPlayerByLocalId(ctx, args.playerId);
     const profile = await getCurrentProfile(ctx);
-    const liveDropIds = new Set(getLiveDrops().map((drop) => drop.id));
+    const now = Date.now();
+    const releasedDropIds = new Set(getReleasedDrops(now).map((drop) => drop.id));
     const trailSummaries = await Promise.all(
       getTrails().map(async (trail) => {
-        const dropSummaries = await Promise.all(
+        const dropSummaries = (
+          await Promise.all(
           trail.dropIds
             .map((dropId) => getDrop(dropId))
-            .filter(
-              (drop): drop is Drop => drop !== null && liveDropIds.has(drop.id),
-            )
             .map(async (drop) => {
+              if (!drop || drop.status !== "live") {
+                return null;
+              }
+
+              const isAvailable = releasedDropIds.has(drop.id);
+              if (!isAvailable) {
+                return {
+                  drop: toPublicDrop(drop),
+                  status: "upcoming" as const,
+                  currentQuestionNumber: null,
+                  score: null,
+                  total: drop.questions.length,
+                  releaseAt: drop.releaseAt,
+                };
+              }
+
               const attempt = await getCanonicalAttempt({
                 ctx,
                 playerId: args.playerId,
@@ -879,6 +1002,7 @@ export const getHomeState = query({
                   currentQuestionNumber: null,
                   score: null,
                   total,
+                  releaseAt: drop.releaseAt,
                 };
               }
 
@@ -891,6 +1015,7 @@ export const getHomeState = query({
                   currentQuestionNumber: null,
                   score: getScore(answers),
                   total,
+                  releaseAt: drop.releaseAt,
                 };
               }
 
@@ -903,9 +1028,11 @@ export const getHomeState = query({
                 ),
                 score: null,
                 total,
+                releaseAt: drop.releaseAt,
               };
             }),
-        );
+          )
+        ).filter((summary) => summary !== null);
 
         return {
           ...toPublicTrail(trail),
@@ -918,21 +1045,28 @@ export const getHomeState = query({
       ? (
           await Promise.all(
             (await getProfilePairs(ctx, profile._id)).map((pair) =>
-              makePairSummary(ctx, pair, profile),
+              makePairSummary(ctx, pair, profile, now),
             ),
           )
         ).filter((summary) => summary !== null)
       : [];
+    const releasedDropSummaries = dropSummaries.filter(
+      (summary) => summary.status !== "upcoming",
+    );
 
     return {
       trails: trailSummaries,
-      exploredCount: dropSummaries.filter(
+      exploredCount: releasedDropSummaries.filter(
         (summary) => summary.status === "completed",
       ).length,
-      totalCount: dropSummaries.length,
+      totalCount: releasedDropSummaries.length,
       player: getPublicPlayer(player),
       profile: getPublicProfile(profile),
       pairs: pairSummaries,
+      nextRelease: toPublicNextRelease(getNextUpcomingDrop(now)),
+      caughtUp:
+        releasedDropSummaries.length > 0 &&
+        releasedDropSummaries.every((summary) => summary.status === "completed"),
     };
   },
 });
@@ -954,7 +1088,7 @@ export const getPairState = query({
       return null;
     }
 
-    return await makePairDetail(ctx, pair, profile);
+    return await makePairDetail(ctx, pair, profile, Date.now());
   },
 });
 
@@ -1056,11 +1190,13 @@ export const startAttempt = mutation({
 
     const requestedDrop = args.dropId ? getDrop(args.dropId) : null;
 
-    if (args.dropId && (!requestedDrop || requestedDrop.status !== "live")) {
+    const now = Date.now();
+
+    if (args.dropId && (!requestedDrop || !isDropReleased(requestedDrop, now))) {
       throw new Error("This Drop is not available.");
     }
 
-    const drop = inviteContext?.drop ?? requestedDrop ?? getDefaultPlayableDrop();
+    const drop = inviteContext?.drop ?? requestedDrop ?? getDefaultPlayableDrop(now);
 
     if (!drop) {
       throw new Error("No live Drop is available.");
@@ -1120,8 +1256,9 @@ export const submitAnswer = mutation({
   },
   handler: async (ctx, args) => {
     const drop = getDrop(args.dropId);
+    const now = Date.now();
 
-    if (!drop || drop.status !== "live") {
+    if (!drop || !isDropReleased(drop, now)) {
       throw new Error("This Drop is not available.");
     }
 
@@ -1213,8 +1350,9 @@ export const continueAfterReveal = mutation({
   },
   handler: async (ctx, args) => {
     const drop = getDrop(args.dropId);
+    const now = Date.now();
 
-    if (!drop || drop.status !== "live") {
+    if (!drop || !isDropReleased(drop, now)) {
       throw new Error("This Drop is not available.");
     }
 
@@ -1279,8 +1417,9 @@ export const getOrCreateInvite = mutation({
   },
   handler: async (ctx, args) => {
     const drop = getDrop(args.dropId);
+    const now = Date.now();
 
-    if (!drop || drop.status !== "live") {
+    if (!drop || !isDropReleased(drop, now)) {
       throw new Error("This Drop is not available.");
     }
 

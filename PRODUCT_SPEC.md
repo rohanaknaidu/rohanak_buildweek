@@ -3215,7 +3215,163 @@ Do not implement sequential gating until a specific Trail requires it.
 
 ---
 
-# 35. Next Section To Define
+# 35. M5 - The Daily Social Loop
+
+## CURRENT DIRECTION
+
+M5 turns one successful social knowledge relationship into a recurring loop.
+
+Milestone:
+
+`A new Drop reactivates an existing knowledge relationship, and each person's exploration can create a useful next action for the other.`
+
+M5 exists because M1-M4 made the thesis work for one interaction:
+
+`Discovery -> Propagation -> Exploration -> Relationship`
+
+M5 adds:
+
+`Recurrence`
+
+## M5 Product Rules
+
+New knowledge arrives over time.
+
+Each Drop has an absolute `releaseAt` timestamp.
+
+The engine derives:
+
+* `Upcoming`: now is before `releaseAt`;
+* `Available`: now is at or after `releaseAt` and the Drop is editorially live.
+
+Daily midnight IST is the initial editorial cadence, not a permanent engine
+assumption. The product supports scheduled episodic release through `releaseAt`.
+
+Released Drops remain available indefinitely.
+
+Release timing does not create prerequisite gating. Current Trails remain
+open/guided.
+
+## M5 Pair State
+
+For each released Drop and established knowledge pair, derive the current pair
+state from canonical Profile Attempts:
+
+* neither explored -> no pair-specific action;
+* I explored, they have not -> `Challenge {name}`;
+* they explored, I have not -> `Explore and compare`;
+* both explored -> `See what you knew`.
+
+Pair state is current truth, not notification state.
+
+Do say:
+
+* `Hira has explored Gravity. Explore and compare.`
+* `Gravity is ready to compare with Hira.`
+
+Do not say:
+
+* `Hira just finished Gravity.`
+
+unless read/unread or last-seen semantics are deliberately built later.
+
+## M5 Anticipation
+
+Countdowns support the loop; they are not the loop.
+
+Only show anticipation prominently when there is no more valuable released action
+available right now.
+
+Good countdown surfaces:
+
+* Home when the Player is caught up on all released Drops in the primary Trail;
+* Pair surface when both people are caught up together;
+* Result when there is no released next Trail Drop.
+
+Do not show countdowns on:
+
+* Invite landing;
+* Question;
+* Reveal.
+
+When a countdown reaches zero, the client should refresh/re-query so the newly
+released Drop becomes available without requiring a manual browser refresh.
+Backend availability remains authoritative.
+
+## M5 Backend Availability
+
+Future Drops must not be playable merely because content exists in source.
+
+Before `releaseAt`, a Drop cannot be:
+
+* started through direct play;
+* started through an Invite;
+* answered;
+* continued after Reveal;
+* used to create a new Invite;
+* opened through `dykDropId` as a playable Drop.
+
+Invalid Invite semantics remain separate.
+
+## M5 Home Direction
+
+Home should answer three questions:
+
+1. What's new in the knowledge world?
+2. What's active between me and people?
+3. Where am I in the Trail?
+
+This is not a feed, friend list, or notification center.
+
+Home may show current pair actions such as:
+
+* `Gravity is ready to compare with Hira`;
+* `You've explored today's Drop. Challenge Hira`;
+* `Hira has explored today's Drop. Explore and compare`.
+
+## M5 Acceptance Criterion
+
+M5 is complete when this sequence works:
+
+1. Rohanak and Hira already have a knowledge pair.
+2. A future Drop visibly counts down.
+3. The Drop releases.
+4. Rohanak explores it.
+5. `You & Hira` now says Hira has not explored it and offers `Challenge Hira`.
+6. Hira explores later.
+7. Rohanak now has a comparison available.
+8. Both can compare what they knew differently.
+9. When both are caught up, the next scheduled Drop creates anticipation.
+
+## M5 Out Of Scope
+
+Do not add:
+
+* push notifications;
+* email notifications;
+* WhatsApp automation;
+* activity feed;
+* read/unread event infrastructure;
+* friend requests;
+* contact import;
+* people search;
+* groups;
+* chat;
+* leaderboard;
+* streaks;
+* XP;
+* replay / reset;
+* prerequisite Trails;
+* anonymous access gating;
+* AI recommendations;
+* complex multiple release calendars.
+
+After M5, major product mechanics should freeze for Build Week and effort should
+shift toward content quality and release runway.
+
+---
+
+# 36. Next Section To Define
 
 ## TODO - Concrete V1 User Journeys
 

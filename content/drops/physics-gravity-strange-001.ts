@@ -8,6 +8,7 @@ export const physicsGravityStrange001 = {
   description:
     "Five quick challenges about falling, orbiting, tides, weight, and time.",
   status: "live",
+  releaseAt: "2026-09-01T18:30:00.000Z",
   releaseOrder: 2,
   experience: {
     centralIdea:

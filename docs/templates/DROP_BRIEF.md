@@ -8,6 +8,7 @@ Use this brief before adding or editing a Drop.
 * Area:
 * Drop title:
 * Short description:
+* Release timestamp:
 * Central idea:
 * What should the player understand differently after this Drop?
 
@@ -57,4 +58,5 @@ Repeat for each Question.
 * [ ] Trail bridges explain why adjacent Drops connect.
 * [ ] Existing visual family/motif is sufficient, or a new vocabulary addition is explicitly justified.
 * [ ] No engine changes are required for an ordinary Drop using existing vocabulary.
+* [ ] `releaseAt` is an absolute timestamp and matches the editorial release plan.
 * [ ] Home, Invite, Question, Reveal, Result, mobile, and desktop are checked.

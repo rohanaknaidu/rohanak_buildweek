@@ -1,7 +1,7 @@
-import { getLiveDrops } from "../content/registry";
+import { getReleasedDrops } from "../content/registry";
 
-export function getDefaultPlayableDrop() {
-  const liveDrops = getLiveDrops();
+export function getDefaultPlayableDrop(now = Date.now()) {
+  const liveDrops = getReleasedDrops(now);
 
   if (liveDrops.length === 0) {
     return undefined;
