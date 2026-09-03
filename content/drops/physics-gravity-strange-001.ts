@@ -37,6 +37,7 @@ export const physicsGravityStrange001 = {
       ],
       correctOptionId: "falling-around-earth",
       reveal: {
+        discovery: "Astronauts float because they and the space station are falling around Earth together.",
         explanation:
           "The space station is still deep inside Earth's gravity. Astronauts float because the station, the crew, and everything inside are falling around Earth together, so nothing presses on the floor like it does at home.",
         source: {
@@ -56,6 +57,7 @@ export const physicsGravityStrange001 = {
       ],
       correctOptionId: "continuous-freefall",
       reveal: {
+        discovery: "Orbit is continuous falling around a planet.",
         explanation:
           "Orbit is not hovering. A spacecraft is moving sideways so fast that, as gravity pulls it downward, the ground curves away beneath it and it keeps falling around the planet.",
         source: {
@@ -75,6 +77,7 @@ export const physicsGravityStrange001 = {
       ],
       correctOptionId: "moon",
       reveal: {
+        discovery: "The Moon has a bigger effect on Earth's ocean tides than the Sun.",
         explanation:
           "The Sun pulls on Earth strongly, but tides depend heavily on how much the pull changes across Earth. The Moon is much closer, so its tide-making effect is stronger than the Sun's.",
         source: {
@@ -94,6 +97,7 @@ export const physicsGravityStrange001 = {
       ],
       correctOptionId: "yes-gravity-varies",
       reveal: {
+        discovery: "Your weight can change with location even when your mass stays the same.",
         explanation:
           "Mass is how much matter you have, but weight is the pull of gravity on that mass. NASA notes that weight varies depending on whether you are on Earth, the Moon, or in orbit, while mass stays the same.",
         source: {
@@ -113,6 +117,7 @@ export const physicsGravityStrange001 = {
       ],
       correctOptionId: "gravity-time",
       reveal: {
+        discovery: "GPS has to correct for tiny time differences caused by relativity.",
         explanation:
           "Gravity affects time. GPS satellites experience time slightly differently from clocks on Earth, and those tiny clock differences would quickly become miles of location error if GPS did not correct for relativity.",
         source: {

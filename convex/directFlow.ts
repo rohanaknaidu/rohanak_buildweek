@@ -363,24 +363,28 @@ function getAnswerOverlap({
     youKnewTheyMissedDiscoveries: [] as {
       questionId: string;
       prompt: string;
+      discovery: string;
       explanation: string;
       source: { label: string; url: string };
     }[],
     theyKnewYouMissedDiscoveries: [] as {
       questionId: string;
       prompt: string;
+      discovery: string;
       explanation: string;
       source: { label: string; url: string };
     }[],
     bothKnewDiscoveries: [] as {
       questionId: string;
       prompt: string;
+      discovery: string;
       explanation: string;
       source: { label: string; url: string };
     }[],
     neitherKnewDiscoveries: [] as {
       questionId: string;
       prompt: string;
+      discovery: string;
       explanation: string;
       source: { label: string; url: string };
     }[],
@@ -395,6 +399,7 @@ function getAnswerOverlap({
       overlap.bothKnewDiscoveries.push({
         questionId: question.id,
         prompt: question.prompt,
+        discovery: question.reveal.discovery,
         explanation: question.reveal.explanation,
         source: question.reveal.source,
       });
@@ -403,6 +408,7 @@ function getAnswerOverlap({
       overlap.youKnewTheyMissedDiscoveries.push({
         questionId: question.id,
         prompt: question.prompt,
+        discovery: question.reveal.discovery,
         explanation: question.reveal.explanation,
         source: question.reveal.source,
       });
@@ -411,6 +417,7 @@ function getAnswerOverlap({
       overlap.theyKnewYouMissedDiscoveries.push({
         questionId: question.id,
         prompt: question.prompt,
+        discovery: question.reveal.discovery,
         explanation: question.reveal.explanation,
         source: question.reveal.source,
       });
@@ -419,6 +426,7 @@ function getAnswerOverlap({
       overlap.neitherKnewDiscoveries.push({
         questionId: question.id,
         prompt: question.prompt,
+        discovery: question.reveal.discovery,
         explanation: question.reveal.explanation,
         source: question.reveal.source,
       });
@@ -646,7 +654,7 @@ function getPairNextAction({
       return {
         kind: "compare" as const,
         drop: toPublicDrop(drop),
-        label: `${drop.title} is ready to compare.`,
+        label: `${drop.title}: you both explored this.`,
       };
     }
   }
@@ -702,6 +710,7 @@ function makeRevealPayload(answer: AnswerDoc) {
     selectedOptionId: answer.selectedOptionId,
     correctOptionId: question.correctOptionId,
     correct: answer.correct,
+    discovery: question.reveal.discovery,
     explanation: question.reveal.explanation,
     source: question.reveal.source,
   };

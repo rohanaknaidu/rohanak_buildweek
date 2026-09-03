@@ -37,6 +37,7 @@ export const bodySpaceVision001 = {
       ],
       correctOptionId: "head",
       reveal: {
+        discovery: "In microgravity, fluid can shift toward the head and may affect vision.",
         explanation:
           "In microgravity, fluids can shift toward the head. NASA studies how that headward fluid shift may contribute to changes in the eyes and brain during spaceflight.",
         source: {
@@ -48,15 +49,16 @@ export const bodySpaceVision001 = {
     {
       id: "sans-meaning",
       prompt:
-        "NASA uses the term SANS for a spaceflight condition involving which body system?",
+        "NASA uses the term SANS for a spaceflight condition involving which systems?",
       options: [
-        { id: "vision", label: "Eyes and vision" },
+        { id: "vision", label: "Eyes, vision, and brain" },
         { id: "digestion", label: "Digestion only" },
         { id: "hair", label: "Hair growth" },
         { id: "fingerprints", label: "Fingerprints" },
       ],
       correctOptionId: "vision",
       reveal: {
+        discovery: "SANS is a spaceflight condition involving the eyes, vision, and brain.",
         explanation:
           "SANS stands for Spaceflight Associated Neuro-ocular Syndrome. It describes eye and vision-related changes NASA monitors in astronauts during and after spaceflight.",
         source: {
@@ -77,6 +79,7 @@ export const bodySpaceVision001 = {
       ],
       correctOptionId: "gravity-readaptation",
       reveal: {
+        discovery: "After spaceflight, the body may need to readapt its balance to gravity.",
         explanation:
           "Balance and orientation depend on gravity. NASA tracks functional tasks after landing because astronauts need to readapt to moving in a gravitational environment.",
         source: {
@@ -97,6 +100,7 @@ export const bodySpaceVision001 = {
       ],
       correctOptionId: "longer-exposure",
       reveal: {
+        discovery: "Longer missions mean longer exposure to the spaceflight environment.",
         explanation:
           "Longer missions mean longer exposure to the spaceflight environment. NASA studies vision and cardiovascular risks because those changes matter for astronaut health on extended missions.",
         source: {
@@ -117,6 +121,7 @@ export const bodySpaceVision001 = {
       ],
       correctOptionId: "brain-fluid-pressure",
       reveal: {
+        discovery: "Astronaut vision research involves the brain, fluids, and pressure, not only the eyeball.",
         explanation:
           "NASA treats spaceflight vision changes as neuro-ocular, meaning the nervous system and eyes are considered together. Fluid shifts and pressure around the head may matter, not just the eye alone.",
         source: {

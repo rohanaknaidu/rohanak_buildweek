@@ -36,6 +36,7 @@ export const bodySpaceflightChanges001 = {
       ],
       correctOptionId: "toward-head",
       reveal: {
+        discovery: "In microgravity, body fluids can shift toward the head.",
         explanation:
           "On Earth, gravity helps pull fluids toward the lower body. In microgravity, fluids shift toward the head, which can make astronauts feel facial fullness and can affect the eyes and brain.",
         source: {
@@ -55,6 +56,7 @@ export const bodySpaceflightChanges001 = {
       ],
       correctOptionId: "less-dense",
       reveal: {
+        discovery: "Weight-bearing bones can lose density during months in space.",
         explanation:
           "Bones are living tissue that respond to load. In microgravity, weight-bearing bones do less support work, so bone breakdown can outpace rebuilding unless astronauts use countermeasures.",
         source: {
@@ -74,6 +76,7 @@ export const bodySpaceflightChanges001 = {
       ],
       correctOptionId: "avoid-muscle-loss",
       reveal: {
+        discovery: "Astronauts exercise in space to reduce muscle and bone loss.",
         explanation:
           "Muscles that normally work against Earth's gravity do not have to work as hard in microgravity. Without exercise, astronauts lose muscle mass faster than they would on Earth.",
         source: {
@@ -93,6 +96,7 @@ export const bodySpaceflightChanges001 = {
       ],
       correctOptionId: "temporarily-taller",
       reveal: {
+        discovery: "Astronauts can become temporarily taller in space.",
         explanation:
           "Without the usual compression from Earth's gravity, the spine can straighten and elongate. NASA notes that crew members can increase in height by as much as 3% in space.",
         source: {
@@ -112,6 +116,7 @@ export const bodySpaceflightChanges001 = {
       ],
       correctOptionId: "balance-control",
       reveal: {
+        discovery: "Astronauts may need to readapt their balance after returning from space.",
         explanation:
           "Your balance system is tuned by gravity. NASA uses functional task testing after landing to detect and improve balance control as astronauts readapt to a gravitational surface.",
         source: {

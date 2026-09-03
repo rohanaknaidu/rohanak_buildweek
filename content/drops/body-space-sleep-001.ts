@@ -37,6 +37,7 @@ export const bodySpaceSleep001 = {
       ],
       correctOptionId: "circadian-rhythm",
       reveal: {
+        discovery: "Spaceflight can disrupt the body's circadian rhythm.",
         explanation:
           "Spaceflight can disturb the body's internal clock, called the circadian rhythm. NASA studies sleep and alertness because changed light cycles, workload, stress, and confined spaces can all affect astronaut rest.",
         source: {
@@ -57,6 +58,7 @@ export const bodySpaceSleep001 = {
       ],
       correctOptionId: "help-body-clock",
       reveal: {
+        discovery: "Space station lighting is designed to support sleep, alertness, and body clocks.",
         explanation:
           "Lighting is part of astronaut health. NASA notes that newer LED lighting on the space station helps align circadian rhythms and improve sleep, alertness, and performance.",
         source: {
@@ -77,6 +79,7 @@ export const bodySpaceSleep001 = {
       ],
       correctOptionId: "attention-vigilance",
       reveal: {
+        discovery: "Astronauts can use short attention tests to check fatigue effects.",
         explanation:
           "Fatigue can quietly change performance. NASA describes a 10-minute self-test of vigilance and attention used to assess how fatigue affects astronauts during missions.",
         source: {
@@ -97,6 +100,7 @@ export const bodySpaceSleep001 = {
       ],
       correctOptionId: "37-minutes",
       reveal: {
+        discovery: "A day on Mars is about 37 minutes longer than a day on Earth.",
         explanation:
           "NASA flags a 37-minute extended day on Mars as one factor that can alter astronauts' biological clocks. That sounds small, but repeated schedule shifts can matter for sleep and alertness.",
         source: {
@@ -117,6 +121,7 @@ export const bodySpaceSleep001 = {
       ],
       correctOptionId: "noisy-confined",
       reveal: {
+        discovery: "Small, noisy, confined spacecraft environments can make quality sleep harder.",
         explanation:
           "Astronaut sleep is affected by more than bedtime. NASA points to different dark and light cycles, small and noisy environments, heavy workloads, and stress as factors that can alter rest.",
         source: {

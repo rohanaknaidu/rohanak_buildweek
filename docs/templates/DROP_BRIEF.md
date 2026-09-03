@@ -42,6 +42,7 @@ Repeat for each Question.
 * Prompt:
 * Options:
 * Correct answer:
+* Discovery sentence:
 * Reveal:
 * Why it matters:
 * Source label:
@@ -53,6 +54,7 @@ Repeat for each Question.
 * [ ] The Drop works standalone from an Invite.
 * [ ] No answer has more than one defensible correct option.
 * [ ] Every Reveal is valuable even if the player answered correctly.
+* [ ] Every discovery sentence stands alone and is interesting enough for "You knew this; they missed this."
 * [ ] At least 3 discoveries are independently retellable.
 * [ ] Question count can be derived from content.
 * [ ] Trail bridges explain why adjacent Drops connect.

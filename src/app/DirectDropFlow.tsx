@@ -742,6 +742,7 @@ function DropFlowInner({
       <>
         {shareState === "auth" ? (
           <AuthSheet
+            compareName={challenger?.displayName}
             disabled={isPending}
             error={error}
             onClose={() => setShareState("closed")}
@@ -1395,10 +1396,7 @@ function InviteLandingScreen({
   error: string | null;
   onStart: () => void;
 }) {
-  const prompt =
-    challenger.result.score === challenger.result.total
-      ? "Can you match that?"
-      : "Can you beat that?";
+  const prompt = "What will you know differently?";
   const theme = getTerritoryTheme(drop.experience.visualIdentity);
 
   return (
@@ -1745,11 +1743,7 @@ function ResultScreen({
   profile: Profile | null;
   trailContext: TrailContext | null;
 }) {
-  const challengeCopy = challenger
-    ? "Curious what someone else knows?"
-    : score === total
-      ? `Think someone can match your ${score}/${total}?`
-      : `Think someone can beat your ${score}/${total}?`;
+  const challengeCopy = "Curious what someone else knows?";
   const comparison = challenger ? getComparisonCopy(score, challenger) : null;
   const theme = getTerritoryTheme(drop.experience.visualIdentity);
   const nextBridge =
@@ -2191,7 +2185,7 @@ function PairScreen({
             ) : nextPairAction?.overlap ? (
               <>
                 <h2 className="mt-3 text-2xl font-semibold leading-tight">
-                  {nextPairAction.drop.title} is ready to compare.
+                  You both explored {nextPairAction.drop.title}.
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-[#c9c0ad]">
                   Open the Drop card to see what each of you knew.
@@ -2276,12 +2270,7 @@ function PairDropCard({
             You {summary.myScore}/{summary.total} | {otherName}{" "}
             {summary.theirScore}/{summary.total}
           </p>
-          <OverlapGrid
-            className="mt-4"
-            otherName={otherName}
-            overlap={summary.overlap}
-          />
-          <DifferenceDiscoveries
+          <KnowledgeBuckets
             className="mt-4"
             otherName={otherName}
             overlap={summary.overlap}
@@ -2434,66 +2423,6 @@ function KnowledgeBuckets({
   );
 }
 
-function OverlapGrid({
-  className = "",
-  otherName,
-  overlap,
-}: {
-  className?: string;
-  otherName: string;
-  overlap: AnswerOverlap;
-}) {
-  return (
-    <div className={`grid gap-2 sm:grid-cols-2 ${className}`}>
-      <OverlapTile label="Both knew" value={overlap.bothKnew} />
-      <OverlapTile
-        label={`You knew, ${otherName} missed`}
-        value={overlap.youKnewTheyMissed}
-      />
-      <OverlapTile
-        label={`${otherName} knew, you missed`}
-        value={overlap.theyKnewYouMissed}
-      />
-      <OverlapTile label="Neither knew" value={overlap.neitherKnew} />
-    </div>
-  );
-}
-
-function DifferenceDiscoveries({
-  className = "",
-  otherName,
-  overlap,
-  variant = "full",
-}: {
-  className?: string;
-  otherName: string;
-  overlap: AnswerOverlap;
-  variant?: "full" | "summary";
-}) {
-  const hasDifferences =
-    overlap.youKnewTheyMissedDiscoveries.length > 0 ||
-    overlap.theyKnewYouMissedDiscoveries.length > 0;
-
-  if (!hasDifferences) {
-    return null;
-  }
-
-  return (
-    <div className={`grid gap-3 ${className}`}>
-      <DiscoveryList
-        discoveries={overlap.youKnewTheyMissedDiscoveries}
-        title={`You knew this. ${otherName} didn't.`}
-        variant={variant}
-      />
-      <DiscoveryList
-        discoveries={overlap.theyKnewYouMissedDiscoveries}
-        title={`${otherName} knew this. You didn't.`}
-        variant={variant}
-      />
-    </div>
-  );
-}
-
 function DiscoveryList({
   className = "",
   discoveries,
@@ -2545,31 +2474,18 @@ function DiscoveryList({
 }
 
 function getDiscoverySummary(discovery: AnswerDifference) {
-  return (
-    discovery.explanation.match(/^[^.!?]+[.!?]/)?.[0] ??
-    discovery.explanation ??
-    discovery.prompt
-  );
-}
-
-function OverlapTile({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl border border-[#fff8e8]/12 bg-[#101114]/45 p-3">
-      <p className="text-2xl font-semibold text-[#fff8e8]">{value}</p>
-      <p className="mt-1 text-xs font-semibold leading-5 text-[#c9c0ad]">
-        {label}
-      </p>
-    </div>
-  );
+  return discovery.discovery;
 }
 
 function AuthSheet({
+  compareName,
   disabled,
   error,
   onClose,
   onContinue,
   purpose,
 }: {
+  compareName?: string;
   disabled: boolean;
   error: string | null;
   onClose: () => void;
@@ -2578,13 +2494,21 @@ function AuthSheet({
 }) {
   const copy =
     purpose === "challenge"
-      ? "Continue with Google so friends can see who challenged them."
+      ? "Continue with Google so friends know this challenge came from you."
       : purpose === "compare"
-        ? "Continue with Google to keep discovering together."
-        : "Continue with Google to keep your scores across devices.";
+        ? `Continue with Google so Did You Know? can remember what you and ${
+            compareName ?? "this person"
+          } discover differently.`
+        : "Continue with Google to keep your journey across devices.";
+  const title =
+    purpose === "compare" && compareName
+      ? `Keep discovering with ${compareName}`
+      : purpose === "save"
+        ? "Save your journey"
+      : "Create your profile";
 
   return (
-    <Sheet onClose={onClose} title="Create your profile">
+    <Sheet onClose={onClose} title={title}>
       <p className="text-base leading-7 text-[#c9c0ad]">{copy}</p>
       <button
         className="mt-5 min-h-14 w-full rounded-full bg-[#fff8e8] px-5 text-base font-bold text-[#101114] shadow-sm transition hover:bg-white focus:outline-none focus:ring-4 focus:ring-[#f2c184]/35 disabled:cursor-not-allowed disabled:opacity-60"
@@ -2851,6 +2775,7 @@ type Reveal = {
   selectedOptionId: string;
   correctOptionId: string;
   correct: boolean;
+  discovery: string;
   explanation: string;
   source: {
     label: string;
@@ -2883,6 +2808,7 @@ type AnswerOverlap = {
 type AnswerDifference = {
   questionId: string;
   prompt: string;
+  discovery: string;
   explanation: string;
   source: {
     label: string;

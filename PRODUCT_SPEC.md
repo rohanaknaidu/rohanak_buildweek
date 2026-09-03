@@ -41,6 +41,7 @@ Current system model:
 * A **Drop** is one curated, scheduled knowledge challenge.
 * A **Question** creates prediction / commitment.
 * A **Reveal** is the learning payoff.
+* A **Discovery** is the concise knowledge object that travels socially between Result and Pair surfaces.
 * An **Attempt** is the canonical play-through for one Player/Profile and one Drop.
 * An **Invite** lets a completed Drop move from one authenticated Profile to another person.
 * A **Trail** is editorial guidance through Drops, not a prerequisite graph.
@@ -51,6 +52,7 @@ Current invariants:
 
 * Content remains plain serializable data.
 * Question count is derived from Drop content, not hardcoded to five.
+* Every Question has a required social `discovery` sentence separate from the longer Reveal explanation.
 * The generic renderer may branch on visual vocabulary keys, never Drop ID or Topic ID.
 * Backend release checks use server time; upcoming Drops cannot be played or invited early.
 * Anonymous play remains possible for released open-Trail Drops.
@@ -3330,7 +3332,7 @@ Pair state is current truth, not notification state.
 Do say:
 
 * `Hira has explored Gravity. Explore and compare.`
-* `Gravity is ready to compare with Hira.`
+* `Gravity: you both explored this. See what you knew.`
 
 Do not say:
 
@@ -3388,7 +3390,7 @@ This is not a feed, friend list, or notification center.
 
 Home may show current pair actions such as:
 
-* `Gravity is ready to compare with Hira`;
+* `Gravity: you both explored this`;
 * `You've explored today's Drop. Challenge Hira`;
 * `Hira has explored today's Drop. Explore and compare`.
 

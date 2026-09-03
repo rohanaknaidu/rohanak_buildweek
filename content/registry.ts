@@ -49,6 +49,7 @@ export type Source = {
 };
 
 export type Reveal = {
+  discovery: string;
   explanation: string;
   source: Source;
 };
@@ -228,6 +229,7 @@ function resolveDrop(drop: DropContent): Drop {
   const area = areas.find((candidate) => candidate.id === drop.areaId);
   validateVisualIdentity(drop);
   validateReleaseAt(drop);
+  validateDiscoveries(drop);
 
   if (!topic) {
     throw new Error(`Drop "${drop.id}" references missing Topic "${drop.topicId}".`);
@@ -253,6 +255,16 @@ function resolveDrop(drop: DropContent): Drop {
 function validateReleaseAt(drop: DropContent) {
   if (Number.isNaN(Date.parse(drop.releaseAt))) {
     throw new Error(`Drop "${drop.id}" has invalid releaseAt "${drop.releaseAt}".`);
+  }
+}
+
+function validateDiscoveries(drop: DropContent) {
+  for (const question of drop.questions) {
+    if (!question.reveal.discovery.trim()) {
+      throw new Error(
+        `Drop "${drop.id}" question "${question.id}" is missing a discovery sentence.`,
+      );
+    }
   }
 }
 

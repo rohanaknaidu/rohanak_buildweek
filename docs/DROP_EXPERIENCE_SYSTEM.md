@@ -30,6 +30,7 @@ Content must remain plain serializable data. It must not include React, callback
 Every production Drop should include:
 
 * player-facing content: `title`, `description`, `questions`, `options`, `reveal`, `source`;
+* social discovery content: one standalone `reveal.discovery` sentence per Question;
 * release metadata: `releaseAt`;
 * editorial metadata: `experience.centralIdea`, `experience.exitUnderstanding`;
 * visual identity: `experience.visualIdentity.family`, `experience.visualIdentity.motif`, optional semantic artwork IDs.
@@ -66,6 +67,7 @@ Content gate:
 
 * central idea is coherent;
 * every Question supports the Drop;
+* every `reveal.discovery` sentence stands alone, remains true outside the prompt, and is interesting enough to travel socially;
 * every Reveal is worth knowing even when answered correctly;
 * every claim has a source;
 * answers are unambiguous;

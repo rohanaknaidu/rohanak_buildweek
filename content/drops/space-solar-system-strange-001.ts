@@ -35,6 +35,7 @@ export const spaceSolarSystemStrange001 = {
       ],
       correctOptionId: "jupiter",
       reveal: {
+        discovery: "Jupiter has the shortest day in the solar system.",
         explanation:
           "Jupiter is enormous, but it spins incredibly fast. One day there takes only about 9.9 Earth hours, making it the shortest planetary day in our solar system.",
         source: {
@@ -54,6 +55,7 @@ export const spaceSolarSystemStrange001 = {
       ],
       correctOptionId: "venus",
       reveal: {
+        discovery: "A day on Venus is longer than a year on Venus.",
         explanation:
           "Venus rotates so slowly that one spin takes 243 Earth days. Its trip around the Sun takes about 225 Earth days, so a Venus day is longer than a Venus year.",
         source: {
@@ -74,6 +76,7 @@ export const spaceSolarSystemStrange001 = {
       ],
       correctOptionId: "uranus",
       reveal: {
+        discovery: "Uranus is tilted so far that it almost rolls around the Sun on its side.",
         explanation:
           "Uranus is tilted by about 98 degrees compared with its orbit. Scientists think a huge collision early in its history may have knocked it sideways.",
         source: {
@@ -93,6 +96,7 @@ export const spaceSolarSystemStrange001 = {
       ],
       correctOptionId: "mars",
       reveal: {
+        discovery: "Olympus Mons, the tallest volcano in the solar system, is on Mars.",
         explanation:
           "Olympus Mons is on Mars, and it is vast. NASA describes it as rising about 17 miles, or 27 kilometers, above the surrounding landscape.",
         source: {
@@ -113,6 +117,7 @@ export const spaceSolarSystemStrange001 = {
       ],
       correctOptionId: "saturn",
       reveal: {
+        discovery: "Saturn is the only planet with an average density lower than water.",
         explanation:
           "Saturn is the least dense planet in the solar system. NASA notes that it is the only planet with an average density lower than water, so the famous floating idea is directionally true.",
         source: {
