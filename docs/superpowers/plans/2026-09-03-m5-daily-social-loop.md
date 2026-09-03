@@ -77,5 +77,5 @@
 - [x] Run `npm run lint`.
 - [x] Run `npm run build`.
 - [x] Run targeted static checks for no Drop/Topic-specific renderer branching.
-- [ ] Commit and push.
-- [ ] Deploy Convex production because content imported by Convex and backend availability code change.
+- [x] Commit and push.
+- [x] Deploy Convex production because content imported by Convex and backend availability code change.
