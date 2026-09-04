@@ -4,7 +4,7 @@ import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 import {
   useCallback,
   useEffect,
@@ -1154,11 +1154,30 @@ function HomeScreen({
   trails: HomeTrail[];
 }) {
   const visibleTrail = trails[0] ?? null;
+  const frontierDrop = visibleTrail ? getHomeFrontierDrop(visibleTrail.drops) : null;
+  const frontierIndex =
+    visibleTrail && frontierDrop
+      ? visibleTrail.drops.findIndex(
+          (summary) => summary.drop.id === frontierDrop.drop.id,
+        )
+      : -1;
+  const frontierBridge =
+    visibleTrail && frontierIndex > 0
+      ? visibleTrail.bridges?.[frontierIndex - 1] ?? null
+      : null;
+  const frontierRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    frontierRef.current?.scrollIntoView({
+      block: "nearest",
+      inline: "center",
+    });
+  }, [frontierDrop?.drop.id]);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#101114] px-5 py-6 text-[#f8f0df]">
       <WorldAtmosphere />
-      <section className="relative z-10 mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-5xl flex-col">
+      <section className="relative z-10 mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-6xl flex-col">
         {profile && onOpenAccount ? (
           <div className="mb-6 flex justify-end">
             <AccountChip
@@ -1169,15 +1188,17 @@ function HomeScreen({
           </div>
         ) : null}
         {visibleTrail ? (
-          <div className="grid flex-1 gap-10 pb-8 pt-4 lg:grid-cols-[0.9fr_1.15fr] lg:items-center lg:gap-16">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.32em] text-[#e6a95f]">
-                Did You Know?
-              </p>
-              <h1 className="mt-5 max-w-xl text-5xl font-semibold leading-[0.96] tracking-normal text-[#fff8e8] sm:text-6xl">
-                Follow a thread through the unknown.
-              </h1>
-              <div className="mt-8 max-w-md border-l border-[#e6a95f]/50 pl-5">
+          <div className="flex flex-1 flex-col gap-8 pb-8 pt-4">
+            <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.32em] text-[#e6a95f]">
+                  Did You Know?
+                </p>
+                <h1 className="mt-5 max-w-xl text-5xl font-semibold leading-[0.96] tracking-normal text-[#fff8e8] sm:text-6xl">
+                  Follow a thread through the unknown.
+                </h1>
+              </div>
+              <div className="border-l border-[#e6a95f]/50 pl-5">
                 <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8fb7c9]">
                   Guided Trail
                 </p>
@@ -1190,27 +1211,37 @@ function HomeScreen({
                 <p className="mt-5 inline-flex rounded-full border border-[#e6a95f]/40 bg-[#e6a95f]/10 px-3 py-1 text-sm font-semibold text-[#f2c184]">
                   {exploredCount} of {totalCount} explored
                 </p>
-                {caughtUp && nextRelease ? (
-                  <section className="mt-5 rounded-3xl border border-[#f2c184]/35 bg-[#f2c184]/10 p-4">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#f2c184]">
-                      You are caught up
-                    </p>
-                    <h3 className="mt-2 text-xl font-semibold leading-tight text-[#fff8e8]">
-                      Next Drop unlocks in{" "}
-                      <CountdownText releaseAt={nextRelease.releaseAt} />
-                    </h3>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-[#c9c0ad]">
-                      {nextRelease.drop.title}
-                    </p>
-                  </section>
-                ) : null}
               </div>
             </div>
-            <div className="relative">
-              <div className="absolute left-6 top-4 h-[calc(100%-2rem)] w-px bg-gradient-to-b from-[#e6a95f]/20 via-[#8fb7c9]/50 to-[#d67f7f]/20 sm:left-8" />
-              <div className="space-y-5">
+
+            {caughtUp && nextRelease ? (
+              <HomeNextReleaseCard nextRelease={nextRelease} />
+            ) : frontierDrop ? (
+              <HomeFeaturedDrop
+                bridge={frontierBridge}
+                disabled={disabled}
+                onOpenDrop={onOpenDrop}
+                summary={frontierDrop}
+              />
+            ) : null}
+
+            <section>
+              <div className="mb-3 flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8fb7c9]">
+                    The thread
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-[#fff8e8]">
+                    From planets to people
+                  </h2>
+                </div>
+                <p className="hidden text-sm font-semibold text-[#c9c0ad] sm:block">
+                  Scroll sideways
+                </p>
+              </div>
+              <div className="-mx-5 flex snap-x gap-4 overflow-x-auto px-5 pb-4 pt-1">
                 {visibleTrail.drops.map((summary, index) => (
-                  <TrailDropRow
+                  <TrailDropCard
                     bridge={
                       index < visibleTrail.drops.length - 1
                         ? visibleTrail.bridges?.[index] ?? null
@@ -1218,13 +1249,19 @@ function HomeScreen({
                     }
                     disabled={disabled}
                     index={index}
+                    isFrontier={summary.drop.id === frontierDrop?.drop.id}
                     key={summary.drop.id}
                     onOpenDrop={onOpenDrop}
+                    frontierRef={
+                      summary.drop.id === frontierDrop?.drop.id
+                        ? frontierRef
+                        : null
+                    }
                     summary={summary}
                   />
                 ))}
               </div>
-            </div>
+            </section>
           </div>
         ) : (
           <h2 className="mt-8 text-3xl font-semibold leading-tight tracking-normal">
@@ -1280,17 +1317,131 @@ function HomeScreen({
   );
 }
 
-function TrailDropRow({
+function getHomeFrontierDrop(drops: HomeDropSummary[]) {
+  const inProgress = drops.find((summary) => summary.status === "inProgress");
+
+  if (inProgress) {
+    return inProgress;
+  }
+
+  const releasedUnstarted = drops
+    .filter((summary) => summary.status === "unstarted")
+    .sort((a, b) => Date.parse(b.releaseAt) - Date.parse(a.releaseAt));
+
+  if (releasedUnstarted[0]) {
+    return releasedUnstarted[0];
+  }
+
+  const latestCompleted = drops
+    .filter((summary) => summary.status === "completed")
+    .sort((a, b) => Date.parse(b.releaseAt) - Date.parse(a.releaseAt));
+
+  if (latestCompleted[0]) {
+    return latestCompleted[0];
+  }
+
+  return drops.find((summary) => summary.status === "upcoming") ?? null;
+}
+
+function HomeNextReleaseCard({ nextRelease }: { nextRelease: NextRelease }) {
+  const theme = getTerritoryTheme(nextRelease.drop.experience.visualIdentity);
+
+  return (
+    <section
+      className="relative overflow-hidden rounded-[2rem] border border-[#f2c184]/35 bg-[#f2c184]/10 p-5 shadow-2xl sm:p-6"
+      style={{ "--accent": theme.accent } as CSSProperties}
+    >
+      <div className="absolute right-4 top-4 opacity-80">
+        <ArtworkSignal
+          artworkId={nextRelease.drop.experience.visualIdentity.artwork?.hero}
+          theme={theme}
+        />
+      </div>
+      <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#f2c184]">
+        Next episode
+      </p>
+      <h2 className="mt-3 max-w-2xl text-3xl font-semibold leading-tight text-[#fff8e8] sm:text-4xl">
+        {nextRelease.drop.title}
+      </h2>
+      <p className="mt-3 max-w-xl text-base leading-7 text-[#c9c0ad]">
+        You are caught up. This Drop unlocks in{" "}
+        <span className="font-bold text-[#f2c184]">
+          <CountdownText releaseAt={nextRelease.releaseAt} />
+        </span>
+        .
+      </p>
+    </section>
+  );
+}
+
+function HomeFeaturedDrop({
   bridge,
   disabled,
-  index,
   onOpenDrop,
   summary,
 }: {
   bridge: string | null;
   disabled: boolean;
-  index: number;
   onOpenDrop: (dropId: string, status: HomeDropStatus) => void;
+  summary: HomeDropSummary;
+}) {
+  const theme = getTerritoryTheme(summary.drop.experience.visualIdentity);
+  const isCompleted = summary.status === "completed";
+  const isInProgress = summary.status === "inProgress";
+  const actionLabel = getHomeActionLabel(summary);
+
+  return (
+    <section
+      className="relative overflow-hidden rounded-[2rem] border border-[var(--accent)]/45 bg-[#f8f0df]/10 p-5 shadow-2xl sm:p-6"
+      style={{ "--accent": theme.accent } as CSSProperties}
+    >
+      <div className="absolute right-4 top-4 opacity-80">
+        <ArtworkSignal
+          artworkId={summary.drop.experience.visualIdentity.artwork?.hero}
+          theme={theme}
+        />
+      </div>
+      <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--accent)]">
+        {isInProgress ? "Continue" : isCompleted ? "Latest explored" : "Now open"}
+      </p>
+      {bridge ? (
+        <p className="mt-3 max-w-2xl text-lg font-semibold leading-7 text-[#f2c184]">
+          {bridge}
+        </p>
+      ) : null}
+      <h2 className="mt-3 max-w-3xl text-3xl font-semibold leading-tight text-[#fff8e8] sm:text-4xl">
+        {summary.drop.title}
+      </h2>
+      <p className="mt-3 max-w-2xl text-base leading-7 text-[#c9c0ad]">
+        {summary.drop.description}
+      </p>
+      <button
+        className="mt-5 min-h-12 w-full max-w-sm rounded-full bg-[var(--accent)] px-5 text-base font-bold text-[#101114] shadow-[0_0_35px_rgba(255,255,255,0.08)] transition hover:brightness-110 focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35 disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={disabled || summary.status === "upcoming"}
+        onClick={() => onOpenDrop(summary.drop.id, summary.status)}
+        type="button"
+      >
+        {disabled ? "Opening..." : actionLabel}
+      </button>
+    </section>
+  );
+}
+
+function TrailDropCard({
+  bridge,
+  disabled,
+  index,
+  isFrontier,
+  onOpenDrop,
+  frontierRef,
+  summary,
+}: {
+  bridge: string | null;
+  disabled: boolean;
+  index: number;
+  isFrontier: boolean;
+  onOpenDrop: (dropId: string, status: HomeDropStatus) => void;
+  frontierRef: Ref<HTMLDivElement> | null;
   summary: HomeDropSummary;
 }) {
   const isCompleted = summary.status === "completed";
@@ -1300,11 +1451,26 @@ function TrailDropRow({
   const theme = getTerritoryTheme(summary.drop.experience.visualIdentity);
 
   return (
-    <div className="relative grid grid-cols-[3rem_1fr] gap-3 sm:grid-cols-[4rem_1fr]">
-      <div aria-hidden="true" className="relative z-10 flex flex-col items-center">
+    <div
+      className="w-[17rem] shrink-0 snap-center sm:w-[19rem]"
+      ref={frontierRef}
+    >
+      <article
+        className={[
+          "relative flex min-h-[21rem] flex-col overflow-hidden rounded-2xl border p-4 shadow-2xl transition",
+          isFrontier ? "ring-2 ring-[var(--accent)]/45" : "",
+          isCompleted
+            ? "border-[var(--accent)]/50 bg-[#f8f0df]/95 text-[#17120d]"
+            : isUpcoming
+              ? "border-[#f2c184]/20 bg-[#101114]/75 text-[#fff8e8]"
+              : "border-[#f8f0df]/15 bg-[#f8f0df]/8 text-[#fff8e8] hover:border-[var(--accent)]/70",
+        ].join(" ")}
+        style={{ "--accent": theme.accent } as CSSProperties}
+      >
+        <div className="flex items-start justify-between gap-3">
         <span
           className={[
-            "mt-3 flex h-12 w-12 items-center justify-center rounded-full border text-sm font-bold shadow-[0_0_35px_rgba(255,255,255,0.08)] sm:h-14 sm:w-14",
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-sm font-bold shadow-[0_0_35px_rgba(255,255,255,0.08)]",
             isCompleted
               ? "border-[var(--accent)] bg-[var(--accent)] text-[#101114]"
               : isInProgress
@@ -1313,29 +1479,15 @@ function TrailDropRow({
                   ? "border-[#f2c184]/35 bg-[#101114] text-[#f2c184]"
                 : "border-[#f8f0df]/25 bg-[#17191e] text-[#c9c0ad]",
           ].join(" ")}
-          style={{ "--accent": theme.accent } as CSSProperties}
         >
-          {isCompleted ? "Seen" : index + 1}
+            {isCompleted ? "Seen" : index + 1}
         </span>
-      </div>
-      <article
-        className={[
-          "relative overflow-hidden rounded-2xl border p-5 shadow-2xl transition",
-          isCompleted
-            ? "border-[var(--accent)]/60 bg-[#f8f0df]/95 text-[#17120d]"
-            : isUpcoming
-              ? "border-[#f2c184]/20 bg-[#101114]/75 text-[#fff8e8]"
-              : "border-[#f8f0df]/15 bg-[#f8f0df]/8 text-[#fff8e8] hover:border-[var(--accent)]/70",
-        ].join(" ")}
-        style={{ "--accent": theme.accent } as CSSProperties}
-      >
-        <div className="absolute right-3 top-3 opacity-80">
           <ArtworkSignal
             artworkId={summary.drop.experience.visualIdentity.artwork?.hero}
             theme={theme}
           />
         </div>
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent)]">
+        <p className="mt-5 text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent)]">
           {summary.drop.topic.name}
         </p>
         <p
@@ -1346,17 +1498,18 @@ function TrailDropRow({
         >
           {summary.drop.area.name}
         </p>
-        <h3 className="mt-4 max-w-[18rem] text-2xl font-semibold leading-tight">
+        <h3 className="mt-4 text-xl font-semibold leading-tight">
           {summary.drop.title}
         </h3>
         <p
           className={[
-            "mt-3 max-w-[22rem] text-sm leading-6",
+            "mt-3 line-clamp-3 text-sm leading-6",
             isCompleted ? "text-[#5d554b]" : "text-[#c9c0ad]",
           ].join(" ")}
         >
           {summary.drop.description}
         </p>
+        <div className="flex-1" />
         <button
           className={[
             "mt-5 min-h-12 w-full rounded-full px-4 text-base font-bold transition focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/35 disabled:cursor-not-allowed disabled:opacity-60",
@@ -1383,8 +1536,8 @@ function TrailDropRow({
         </button>
       </article>
       {bridge ? (
-        <div className="col-start-2 -mt-1 pb-1 pl-1">
-          <p className="inline-flex rounded-full border border-[#f8f0df]/12 bg-[#101114]/80 px-4 py-2 text-sm font-semibold leading-6 text-[#f2c184]">
+        <div className="mt-3 min-h-16">
+          <p className="rounded-2xl border border-[#f8f0df]/12 bg-[#101114]/80 px-3 py-2 text-sm font-semibold leading-6 text-[#f2c184]">
             {bridge}
           </p>
         </div>

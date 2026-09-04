@@ -3392,6 +3392,22 @@ Home should answer three questions:
 
 This is not a feed, friend list, or notification center.
 
+As the content runway grows, Home should not render the full Trail as a long
+vertical catalog of large cards.
+
+Preferred current pattern:
+
+* one prominent current / next episode surface;
+* relevant pair actions when present;
+* a compact horizontal, scroll-snapped Trail rail that keeps the connected
+  journey visible without making the first screen a historical archive.
+
+Past completed Drops should be compact.
+
+Current / actionable Drops should receive the strongest treatment.
+
+Future Drops should create anticipation without outranking available actions.
+
 Home may show current pair actions such as:
 
 * `Gravity: you both explored this`;
